@@ -1,0 +1,67 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "DrFramework",
+  "Description": "언리얼 게임 런타임 프레임워크와 교체 가능한 시스템 예시 구현",
+  "Category": "Gameplay",
+  "CreatedBy": "ldnjin81",
+  "CanContainContent": false,
+  "Modules": [
+    {
+      "Name": "DrFramework",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "DrTableSystem",
+      "Enabled": true
+    },
+    {
+      "Name": "GameplayAbilities",
+      "Enabled": true
+    },
+    {
+      "Name": "EnhancedInput",
+      "Enabled": true
+    },
+    {
+      "Name": "CommonUI",
+      "Enabled": true
+    },
+    {
+      "Name": "ModelViewViewModel",
+      "Enabled": true
+    },
+    {
+      "Name": "AudioModulation",
+      "Enabled": true
+    },
+    {
+      "Name": "Metasound",
+      "Enabled": true
+    },
+    {
+      "Name": "Niagara",
+      "Enabled": true
+    },
+    {
+      "Name": "EngineCameras",
+      "Enabled": true
+    },
+    {
+      "Name": "PoseSearch",
+      "Enabled": true
+    },
+    {
+      "Name": "Chooser",
+      "Enabled": true
+    },
+    {
+      "Name": "MotionWarping",
+      "Enabled": true
+    }
+  ]
+}
