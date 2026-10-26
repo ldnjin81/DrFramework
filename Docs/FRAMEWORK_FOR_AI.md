@@ -1,0 +1,501 @@
+# 액션 RPG 게임 런타임 프레임워크 — AI 참고용 설계 계약서 (UE 5.8)
+
+> 용도: 언리얼 엔진으로 3인칭 근접 액션 RPG를 새로 시작할 때 AI 에이전트가 따르는 게임 코드 설계.
+> `Xx` = 프로젝트 클래스 접두사 자리(`UXx…`, `AXx…`, `FXx…`, `EXx…`, 콘솔 `Xx.`). `<Game>` = 모듈 이름. 수치는 권장 시작값. 사람용 설명은 `FRAMEWORK_GUIDE.html`.
+> 범위: 게임 런타임 코드만. 작업 방식·협업·도구는 다루지 않는다.
+
+---
+
+## 0. 설계 원칙 (모든 시스템에 적용)
+1. **게임 규칙의 시간은 틱 누적으로 진행한다.** 어빌리티 타격 구간·보스 패턴·경직·리스폰·상태 효과 지속과 주기 피해·쿨다운·기력 재생 지연은 모두 `Elapsed += DeltaTime`(또는 남은 시간 −= DeltaTime)으로 잰다. 애니메이션 노티파이나 `FTimerManager`에 맡기지 않는다 → 헤드리스 테스트가 결정적이다. 타이머는 HUD 연출(잔상·페이드) 같은 표현에만 쓴다.
+2. **구간 판정은 겹침으로 한다.** `if (Prev < End && Now >= Start)` — 틱이 길어도 판정 구간을 건너뛰지 않는다.
+3. **표현이 없어도 규칙은 돈다.** 몽타주·메시·FX가 없으면 대체 경로(대시, 판정만)로 동작한다. nullrhi에서도 모든 규칙이 테스트된다.
+4. **수치는 데이터, 규칙은 코드.** 밸런스는 DrTable(엑셀) 또는 DataAsset. 코드 상수는 공식 계수와 기본값만.
+5. **이벤트로 연결한다.** 속성 세트 → 네이티브 델리게이트 → 캐릭터/엔카운터/HUD/오디오. 위젯·오디오가 게임 규칙을 직접 바꾸지 않는다.
+6. **테스트 이음새를 남긴다.** 테이블 주입, 난수 시드, 테이블 서브시스템 override, `#if WITH_AUTOMATION_TESTS` 접근자, 입력 진입점 함수.
+7. **엔진 최신 방식**: GAS, Enhanced Input, CommonUI, MVVM, GASP 로코모션(PoseSearch·Chooser·MotionWarping), MetaSound + AudioModulation, Niagara, `FInstancedStruct`.
+
+## 1. 수명 계층과 소유 관계
+```
+UEngine
+ └ UDrTableSubsystem        (엔진 서브시스템, 플러그인) — 정적 테이블 등록·로드·조회. 에디터·게임 전체에서 하나
+UGameInstance (UXxGameInstance)            — 부팅 흐름
+ ├ UXxNetworkSubsystem      (GI 서브시스템) — 요청/응답, 지연 큐, 연결 상태
+ │   └ UXxServerEndpoint ← UXxFakeServer   — 서버 구현(교체 가능)
+ ├ UXxContentSubsystem      (GI)           — UXxContentBase 파생 캐시(PlayerProfile)
+ ├ UXxPerfSubsystem / UXxSmokeSubsystem (GI, Debug/ 폴더, 명령줄 플래그로만 동작) — 패키지 검증
+UWorld
+ ├ UXxEncounterSubsystem    (Tickable World) — 체크포인트·문·사망·승리
+ ├ UXxHitFeedbackSubsystem  (Tickable World) — 히트스톱·셰이크·플래시
+ └ UXxAudioSubsystem        (Tickable World) — 음악 상태·보스/피격/환경 소리·채널 음량
+AXxPlayerController — UXxUIRootLayout(Game/Menu 스택), HUD ViewModel·Widget, 일시정지·설정
+AXxCharacter        — ASC + AttributeSet, LockOn, CombatFX, 카메라, Manny 표시 메시
+AXxBossCharacter    — ASC + AttributeSet, BossBrain, CombatFX, LockOnTarget
+```
+- 규칙: GI 범위 = 맵 전환을 넘어 유지되는 것. World 범위 = 한 판의 상태. 컴포넌트 = 액터 고유 상태.
+- World 서브시스템(엔카운터·타격감·오디오)은 `DoesSupportWorldType`으로 Game/PIE만 허용한다(에디터 월드 제외).
+
+### 1-1. 상속 (부모 → 자식, [A] = Abstract)
+```
+UGameInstance            → UXxGameInstance
+UGameInstanceSubsystem   → UXxNetworkSubsystem, UXxContentSubsystem, UXxPerfSubsystem, UXxSmokeSubsystem
+UTickableWorldSubsystem  → UXxEncounterSubsystem, UXxHitFeedbackSubsystem, UXxAudioSubsystem
+AGameModeBase            → AXxGameMode, AXxTitleGameMode
+UGameUserSettings        → UXxGameUserSettings
+UEngineSubsystem         → UDrTableSubsystem (DrTableSystem 플러그인, 정적 테이블)
+UObject                  → UXxServerEndpoint[A] → UXxFakeServer
+                         → UXxContentBase[A]    → UXxPlayerProfileContent
+ACharacter + IAbilitySystemInterface → AXxCharacter, AXxBossCharacter
+APlayerController        → AXxPlayerController
+UActorComponent          → UXxBossBrainComponent, UXxLockOnComponent, UXxLockOnTargetComponent, UXxCombatFXComponent
+UAbilitySystemComponent  → UXxAbilitySystemComponent
+UAttributeSet            → UXxAttributeSet
+UGameplayEffect          → UXxGameplayEffect_Damage
+UGameplayAbility         → UXxGameplayAbility[A] → _MeleeAttack[A] → _AttackLight, _AttackHeavy
+                                                → _Dodge, _Guard, _ApplyEffect
+UDataAsset               → UXxPlayerCombatData, UXxBossData, UXxCombatFeelData, UXxCombatFXData, UXxAudioData
+UCameraShakeBase         → UXxLightHitShake, UXxHeavyHitShake
+UUserWidget              → UXxUIRootLayout
+UCommonActivatableWidget → UXxCombatHUDWidget, UXxMenuWidget[A] → UXxTitleMenuWidget, UXxPauseMenuWidget, UXxSettingsMenuWidget
+UCommonButtonBase        → UXxGlassButton      (UCommonButtonStyle → UXxGlassButtonStyle)
+UMVVMViewModelBase       → UXxCombatHUDViewModel
+값 구조체: FXxMeleeStage, FXxResolvedEffect, FXx<Table>Row(생성), FXxNetPacket/Response, FXxLatencyProfile,
+          FXxAttackFX, FXxHitFeedbackState, FXxHUDDamageTrail(비 USTRUCT), FXxStatFormula(정적 공식)
+```
+규칙: 엔진 클래스를 한 단계만 상속한다. 공통 동작이 3개 이상 파생에 필요할 때만 Abstract 기반을 하나 둔다.
+
+### 1-2. 멤버 관계 (own = UPROPERTY 소유·생성, weak = TWeakObjectPtr, data = Soft/TSubclassOf/Get()/행 사본)
+```
+AXxCharacter        own: UXxAbilitySystemComponent, UXxAttributeSet, UXxLockOnComponent, UXxCombatFXComponent,
+                         USpringArmComponent→UCameraComponent, 표시 USkeletalMeshComponent
+                    data: UXxPlayerCombatData::Get()(스탯·이동·경직), TArray<TSubclassOf<UXxGameplayAbility>> DefaultAbilities, IMC×2 + UInputAction들, 피격·사망 몽타주
+AXxBossCharacter    own: UXxAbilitySystemComponent, UXxAttributeSet, UXxBossBrainComponent, UXxCombatFXComponent, UXxLockOnTargetComponent
+                    data: TSoftObjectPtr<UXxBossData> BossData(기본값·애니 이름·스탯), TMap<FName, UAnimSequence*> Animations
+UXxBossBrainComponent        data: TArray<FXxBossPhaseRow>, TArray<FXxBossAttackRow> (주입 가능)   weak: Target, HitActors
+                    own: FRandomStream, TMap<int32,double> CooldownUntil
+UXxAbilitySystemComponent own: 부여된 어빌리티 스펙, TMap<Tag,FXxResolvedEffect> Timed/Permanent, StackCounts, ShieldPool
+                    data: UDrTableSubsystem(효과 조회)
+UXxGameplayAbility_MeleeAttack data: TArray<FXxMeleeStage>(몽타주 Soft)     _Dodge data: TArray<TSoftObjectPtr<UAnimMontage>>(8)
+UXxLockOnComponent  data: UXxCombatFeelData   weak: UXxLockOnTargetComponent
+UXxHitFeedbackSubsystem data: UXxCombatFeelData   own: TMap<TWeakObjectPtr<AActor>, FXxHitFeedbackState>
+UXxCombatFXComponent data: UXxCombatFXData::Get()  own: UNiagaraComponent들, UDecalComponent+MID, UPointLightComponent, FXxGhostPose[]
+UXxEncounterSubsystem weak: AXxCharacter, AXxBossCharacter, Checkpoint/Door/Start AActor
+UXxAudioSubsystem   data: UXxAudioData   own: Music/Door/Environment UAudioComponent   weak: Boss, Encounter(의존성 초기화), 피해 이벤트를 구독한 플레이어·보스
+AXxPlayerController own: UXxUIRootLayout(→GameStack, MenuStack), UXxCombatHUDViewModel, UXxCombatHUDWidget, UXxSettingsMenuWidget, 일시정지 IMC/IA
+UXxCombatHUDViewModel weak: Player, PlayerASC, BossASC, Encounter
+UXxCombatHUDWidget  own: ViewModel 참조, 패널·텍스트, 게이지 MID, FXxHUDDamageTrail×2
+UXxNetworkSubsystem own: UXxServerEndpoint(ServerEndpointClass로 생성), PendingRequests, ReceiveQueue
+UXxFakeServer       own: TMap<FString,FInstancedStruct> Store, ReceiveQueue
+UXxContentSubsystem own: UXxPlayerProfileContent, TArray<UXxContentBase*>   (UXxContentBase.Owner → 서브시스템 역참조)
+```
+
+### 1-3. 이벤트 (알림 → 구독)
+```
+UXxAttributeSet.OnDamaged/OnOutOfHealth/OnPoiseBroken/OnParried → AXxCharacter, AXxBossCharacter, UXxEncounterSubsystem; OnDamaged → UXxAudioSubsystem(피격 소리)
+ASC.GetGameplayAttributeValueChangeDelegate(...)               → UXxCombatHUDViewModel
+UXxEncounterSubsystem.OnStateChanged / OnActorsChanged         → UXxCombatHUDViewModel, UXxAudioSubsystem
+UXxEncounterSubsystem.OnDoorMoving                             → UXxAudioSubsystem(문 소리)
+UXxLockOnComponent.OnTargetChanged                             → UXxCombatHUDViewModel
+UXxServerEndpoint.OnPacketToClient / OnEndpointConnectionChanged → UXxNetworkSubsystem
+UXxNetworkSubsystem.OnConnectionStateChanged                   → UXxGameInstance(부팅)
+UXxNetworkSubsystem.OnServerPush                               → UXxContentSubsystem → UXxContentBase.HandleServerPacket
+UXxPlayerProfileContent.OnProfileChanged                       → 프로필 UI
+APlayerController.OnPossessedPawnChanged                       → ViewModel 재바인딩
+직접 호출은 규칙 → 표현 한 방향만: Ability/BossBrain → CombatFXComponent, HitFeedbackSubsystem, AudioSubsystem(보스 공격 소리·페이즈). 엔카운터·속성 세트는 오디오를 부르지 않고 이벤트만 낸다.
+```
+
+## 2. 부팅·동적 데이터 (서버형 단방향)
+흐름: `FakeServer → ServerEndpoint.OnPacketToClient → NetworkSubsystem(ReceiveQueue, 도착시각 정렬) → Dispatch → (요청 콜백 | OnServerPush) → ContentSubsystem → ContentBase.HandleServerPacket`.
+- `FXxNetPacket { Type, RequestId, FInstancedStruct Payload, SendTimeSeconds, Result }`.
+- `EXxNetMessageType { None, Ping, Login, RequestPlayerProfile, ServerPush_ProfileUpdated }`, `EXxNetResult { Ok, Timeout, Error, NotConnected, InvalidRequest }`, `EXxConnectionState { Disconnected, Connecting, Connected, Reconnecting }`.
+- `SendRequest<PayloadT>(Type, Payload, Callback, Timeout=5s)` → RequestId. 만료되면 Timeout으로 콜백.
+- `FXxLatencyProfile { BaseLatency .08, Jitter .03, FailureRate 0 }`를 클라·서버 양쪽에 둔다. 도착 시각은 직전 도착보다 앞서지 않게 해 순서를 보존한다.
+- 틱은 `FTSTicker`(월드 없이 동작).
+- 부팅(`UXxGameInstance::StartBootFlow`): 테이블 로드 → Connect → Connected 시 Login → 세션 토큰 → RequestPlayerProfile → `bBootCompleted`.
+- `-XxAutoNetSmoke`: 단계마다 `[XxAutoNetSmoke] PASS|FAIL <Step>` 출력, 30초 타임아웃.
+- 콘솔: `Xx.Net.Ping`, `Xx.Net.SetLatency <base> <jitter> <failRate>`, `Xx.Profile.Request`, `Xx.Tables.Reload`.
+- **새 메시지 추가 체크리스트**: enum 값 → 페이로드 USTRUCT → FakeServer `ProcessRequest` 분기 → 클라 콘텐츠의 `GetHandledMessageTypes`/`HandleServerPacket` → 자동화 테스트(지연·실패율 포함).
+
+## 3. 정적 데이터 (DrTable 플러그인)
+- 도구: **DrTableSystem 0.10.0** — https://github.com/ldnjin81/DrTableSystem (설치·문법은 저장소 README / README.ko.md, `docs/ko/manual.md`가 기준).
+  - 구성: `drtable` CLI(`build`, `check`, `diff`, `l10n`, `new`), `drtable-gui`, 언리얼 플러그인(`DrTableRuntime`, `DrTableEditor`).
+  - 설치: GitHub Releases의 OS별 실행 파일(윈도우 `x86_64-pc-windows-msvc`)을 `Tools/DrTable/`에 넣고, 플러그인 폴더 `unreal/DrTableSystem`을 `Plugins/DrTableSystem`으로 복사한다. 생성기와 플러그인은 같은 버전으로 맞춘다.
+  - `drtable build --input <데이터> --schema <스키마> --out-cpp Source/<Game>/TableData/Generated --out-client <클라 JSON> --out-server <서버 JSON> --prefix Xx --ue-plugin` → `drtable check --client … --server …`(참조 무결성) → 에디터 빌드 → 굽기 커맨드릿(바뀐 테이블만, `-Verify`는 CI용, `path` 칸이 없는 에셋을 가리키면 칸 위치와 함께 실패).
+- 원본: 스키마(`Schemas/*.schema.xlsx`, `Enums/*.enum.xlsx`, 프로그래머 소유)와 데이터 엑셀(`Design/Tables/*.xlsx`, 기획 소유)을 분리한다. 생성 코드는 스키마에만 의존하므로 데이터 수정은 코드를 바꾸지 않는다. 필드 범위(all/client/server)로 클라·서버 JSON이 나뉜다.
+- 타입 표기: `ID<int32>`, `SubKey<name>`(보조 키 → `FindByX`), `Ref<Table>`/`Ref<Table.Col>`(참조 무결성 검사 + `GetX()` 접근자), `fixed<100>`(정수 저장, `XScale` 상수로 나눔), `duration`(→ `FTimespan`), `path`(→ `FSoftObjectPath`, 타입이 필요하면 `TSoftObjectPtr<T>(Path)`, 굽기 때 에셋 존재 검사), 열거형 시트(`Enums/*.enum.xlsx` → `UENUM EXx*`), 배열 `T[]`/`T[N]`(데이터는 `Name[0]`, `Name[1]` 열 또는 쉼표 칸, 행은 `Name_Start/Num` + 테이블 풀 → `GetName()`이 `TConstArrayView`). 정확한 문법은 저장소 manual이 기준.
+- 생성물: `Source/<Game>/TableData/Generated/FXx<Table>Row`(+`Find(Id)`, `GetAll()`, 참조 접근자), `XxTableRegistration.h`. **손으로 고치지 않는다.**
+- 런타임 구조(0.9.0부터 별도 레지스트리 없음, 0.10.0 기준)
+  | 역할 | 클래스 |
+  |---|---|
+  | 등록·로드·조회 | `UDrTableSubsystem`(UEngineSubsystem). `Get()`, `RegisterAutoTables()`, `LoadAllTables()`, `FindRowByKey/FindRowsBySubKey/GetRows/GetArray`, `SetOverride/ClearOverride`, `AreAllTablesLoaded()`(등록 1개 이상 + 전부 로드, 시작 점검·스모크용) |
+  | 테이블 한 장 | `UXx<Table>Table`(생성, `UDrTableAssetBase`=`UPrimaryDataAsset` 파생). 행 배열·키 인덱스·스키마/내용 해시 |
+  | 행 | `FXx<Table>Row`(생성). `Find(Id)`, `FindBy<SubKey>`, `GetAll()`, `Get<Ref>()` → 내부에서 `UDrTableSubsystem::Get()` 사용 |
+  | 설정 | `UDrTableSettings`(프로젝트 설정 → 플러그인 → DrTable): `AssetRoot`(기본 `/Game/Data`), `ExtraAssets`, `bLoadOnFirstUse`, `bWarnOnContentMismatch` |
+  | 굽기 | `UDrTableBakeCommandlet`(`-run=DrTableBake`, `-Verify`/`-Force`). 매 실행(`-Verify`·변경 없는 테이블 포함) `path` 값과 배열 원소를 에셋 레지스트리로 검사, 실패 시 기존 에셋 보존. 빈 값과 BP 클래스 경로(`…_C`)는 허용 |
+  | 쿡 | `DrTableEditor`가 `UE::Cook::FDelegates::ModifyCook`으로 `AssetRoot` 아래 테이블·문자열 에셋과 `ExtraAssets`를 쿡에 넣는다. `path` 열 에셋은 구운 테이블의 소프트 참조로 함께 쿡 |
+- 등록: 생성 코드를 가진 모듈의 .cpp 하나에
+  ```cpp
+  #include "DrTableSubsystem.h"
+  #include "TableData/Generated/XxTableRegistration.h"
+  DRTABLE_AUTO_REGISTER(XxGeneratedTables::RegisterAll<UDrTableSubsystem>);
+  ```
+  생성된 `RegisterAll(TTables& Tables)`가 테이블마다 `Tables.Register<Row, Asset>(…)`를 부른다.
+- 테스트: `NewObject<UDrTableSubsystem>()`으로 독립 인스턴스를 만들고 `Register` → `ExtraAssets` → `LoadAllTables` 후 `SetOverride`, 끝나면 `ClearOverride`.
+- 패키지: 테이블용 설정은 따로 없다. `DirectoriesToAlwaysCook`에 테이블 폴더(`/Game/Data`)를 넣지 않는다(0.9.0 이전 우회책, 있으면 지운다). 패키지 스모크의 `tables` 단계는 `AreAllTablesLoaded()`로 판정한다.
+- 콘솔: `DrTable.Status`(등록·로드 행 수), `DrTable.Reload`(다시 로드, 이전 행 포인터 무효).
+- 문자열: `UDrStringTables`/`UDrStringSubsystem`(언어 선택·비동기 로드·`FindText(Table, Key)`), 위젯은 `UDrLocalizedTextBlock`. 문자열 테이블이 없는 프로젝트는 매니페스트(`DA_DrStrings`)가 없으면 로드를 시도하지 않아 시작 경고가 없다.
+- 처음 만들 기본 테이블
+  - `BossPhase { Id, Boss, Phase, EnterHpRate fixed<100>, PatternSet Ref<BossAttack.PatternSet>, MoveSpeedRate fixed<100> }`
+  - `BossAttack { Id, PatternSet SubKey, Kind EXxBossAttackKind{Swing,Dash,Slam,Area,Siphon}, Anim, Weight, Cooldown, Damage, StaminaDamage, Effect Ref<EffectDefs>, TelegraphTime, Duration, ActiveStart, ActiveEnd, PoiseDamage, HitRadius, HitForwardOffset, MinRange, MaxRange, MoveDistance, Heal }`
+  - `EffectDefs { Id, Category, ApplyTo{Caster,…}, Duration, DamagePerTick, Period, Magnitude, MoveSpeed/DamageTaken/DamageDealt Multiplier, StackBonus[0..2], StateTag, TriggerTag, ProcInstantDamageCurHpPct, ProcPoiseDamage, StackRule{Refresh,Accumulate}, DisplayName, Icon }`
+
+## 4. 게임플레이 태그 (`Core/XxGameplayTags`, 네이티브 선언)
+- 상태: `State.Dead`, `State.Invulnerable`, `State.Groggy`, `State.Attacking`, `State.Guarding`, `State.Parrying`, `State.Dodging`, `State.Staggered`
+- 버프/디버프: `State.Buff.{Enrage,Guard,Shield}`, `State.Debuff.{Burn,Chill,Sunder,Rot,Bleed,Crush}`
+- 어빌리티 식별: `Ability.Attack.Light`, `Ability.Attack.Heavy`, `Ability.Guard`, `Ability.Dodge`
+- SetByCaller: `Data.Damage`, `Data.PoiseDamage`
+- 상태 태그는 **루즈 태그**(`SetLooseState`)로 켜고 끈다. GE 기간 태그를 쓰지 않는다(틱 기반 진행과 맞추기 위해).
+
+## 5. 속성 (`UXxAttributeSet`)
+| 묶음 | 속성 |
+|---|---|
+| 바이탈 | Health, MaxHealth, Stamina, MaxStamina, StaminaRegenRate |
+| 포이즈 | Poise, MaxPoise, PoiseRegenRate |
+| 전투 | AttackPower, Defense, ElementalResist |
+| 특성 | Strength, Dexterity, Vitality, Spirit, Will |
+| 메타(비복제) | IncomingDamage, IncomingPoiseDamage |
+- 초기화: 데이터 에셋의 `FXxStatBlock`(기본값 + 특성)을 `UXxAttributeSet::InitFromStats`로 적용한다. 공식으로 최대치를 파생하고 현재치를 최대치로 채운다. 플레이어 기본값: MaxHealth 100, MaxStamina 100, StaminaRegen 25/s, MaxPoise 100, PoiseRegen 20/s, AttackPower 20, Defense 5, 특성 0. 보스: MaxHealth 2000, PoiseRegen 0(그로기 종료 시 한 번에 채움).
+- 특성 → 스탯 공식 `FXxStatFormula`: MaxHealth = Base + 12·Vit, Defense = Base + 1·Vit, MaxStamina = Base + 4·Spi, StaminaRegen = Base + .8·Dex, AttackPower = Base + 2·Str, MaxPoise = Base + 3·Str, ElementalResist = clamp(2·Will, 0, 80)%.
+- 이벤트(네이티브 멀티캐스트, UPROPERTY 아님): `OnDamaged(Damage, Instigator, Causer)`, `OnOutOfHealth`, `OnPoiseBroken`, `OnParried`.
+
+## 6. 피해 파이프라인 (`PostGameplayEffectExecute`)
+`UXxGameplayEffect_Damage`(C++ 정의 즉시형 GE, SetByCaller `Data.Damage`/`Data.PoiseDamage` → 메타 속성)를 `ASC::ApplyDamage(TargetASC, Damage, Poise, Causer)`로 적용.
+IncomingDamage 처리 순서:
+1. Health ≤ 0이면 무시(사망 이벤트 중복 방지).
+2. `State.Invulnerable`이면 전부 차단.
+3. 공격자가 **전방 반구**일 때: `State.Parrying` → 피해 0, `OnParried`, 공격자에게 포이즈 피해 `Guard.ParryPoiseReturn(40)`. `State.Guarding` → 비용 = 원피해×`Guard.GuardStaminaRate(.5)`; 스태미나 충분하면 소모하고 피해×`Guard.GuardDamageRate(.3)`(값은 `UXxPlayerCombatData`), 부족하면 막기 붕괴(`OnPoiseBroken`, 전액).
+4. 방어: `max(Raw − Defense, Raw × 5%)`.
+5. × 활성 효과의 받는 피해 배수 곱 → 보호막 풀 흡수(`AbsorbWithShield`).
+6. 스태미나 재생 정지(`StaminaRegenDelayAfterHit` 1.5초). Health 감소, 오디오 `PlayDamage`, `OnDamaged`, 0이 되는 전이에서만 `OnOutOfHealth`.
+IncomingPoiseDamage: 무적이거나 정면 쳐내기/막기 중이면 무시. Poise ≤ 0이 되면 MaxPoise로 다시 채우고 `OnPoiseBroken`.
+
+## 7. ASC (`UXxAbilitySystemComponent`)
+- `GetShouldTick()`은 항상 true. 틱에서 **활성 Xx 어빌리티의 `AbilityTick` 구동 → 한시 효과 시계 → 쿨다운 → 기력 재생 지연 → 스태미나·포이즈 재생** 순서로 진행한다.
+- 스태미나: `SpendStamina` → 남은 지연을 `StaminaRegenDelayAfterSpend(1s)`로, `PushStaminaRegenDelay(sec)`는 더 긴 쪽으로. 모두 틱에서 줄어든다.
+- 효과: `ApplyEffectById(Id, Target, Causer, Tables?)` → `XxEffects::Resolve(Row)` → `ApplyStatusEffect`. 한시 효과는 태그별 시계 `{Remaining, SinceTick}`: 재적용하면 Remaining만 새로, 주기 위상은 유지; 틱에서 `min(dt, Remaining)`만큼 위상을 더해 주기마다 피해(만료와 같은 시각 포함) 후 Remaining ≤ 0이면 해제. 상시 효과(`Add/RemovePermanentEffect`, 장비용)는 따로 저장.
+- 쿨다운: `StartCooldown(Tag, Duration)`이 루즈 태그를 켜고 틱에서 끈다. `GetCooldownRemaining(Tag)`.
+- 중첩: `Refresh`는 지속시간만 갱신, `Accumulate`는 단계 증가 + `StackBonus[단계-1]`% 보너스를 주 수치에 반영(`GetStackCount`).
+- 배수 집계: `GetMoveSpeed/IncomingDamage/OutgoingDamageMultiplier()` = 활성 효과 곱(같은 태그면 한시 효과 우선).
+- 즉발: `ProcInstantDamageCurHpPct`(현재 HP 비율 피해), `ProcPoiseDamage`. 보호막 = `Magnitude`만큼 흡수 풀.
+- 기타: `TryActivateAbilityByTag`, `ApplyHeal`, `TakePoiseDamage`(생명력 없이 포이즈만).
+
+## 8. 어빌리티
+### 8-1. 기반 `UXxGameplayAbility`(Abstract)
+- `StaminaCost`(가상 `GetStaminaCost()` — 데이터에서 읽는 어빌리티가 재정의), `CooldownDuration` + `CooldownTag`(ASC `StartCooldown`), `GetCooldownRemaining`.
+- **수치는 `UXxPlayerCombatData`(DA_PlayerCombat)에서 읽는다**: 근접 타 배열(`LightStages`/`HeavyStages`, 파생이 `GetStages()`로 고름)·판정 구, 회피(`Dodge`), 막기(`Guard`). 코드의 값은 에셋이 없을 때의 기본값이다.
+- `CanActivateAbility`: 스태미나 확인 + `BlockDuringCombatStates()`(Dead·Staggered·Attacking·Dodging 등 중 발동 금지).
+- `AbilityTick(dt)`: ASC가 호출. 모든 구간은 여기서 잰다.
+- `ApplyConstantMove(Dir, Distance, Duration, EndSpeed)`: 루트 모션 없는 전진·대시.
+- `PlayAbilityMontage(SoftPtr, PlayRate) → UAnimMontage*`: 표시 메시가 있는 캐릭터일 때만 동기 로드·재생, 실패 시 nullptr → 호출자가 폴백.
+### 8-2. 근접 `UXxGameplayAbility_MeleeAttack`(Abstract)
+- `TArray<FXxMeleeStage> { Montage, Duration, ActiveStart, ActiveEnd, DamageRate, PoiseDamage, StaminaCost, LungeDistance }`.
+- 판정: 전방 `HitForwardOffset(130)` 지점 반경 `HitRadius(90)` 구 `OverlapMultiByObjectType(Pawn)`, 한 타에 대상당 1회(`HitActors`). 피해 = AttackPower × DamageRate.
+- 콤보: 진행 중 입력 → `BufferNextInput`; 현재 타의 ActiveEnd 이후 다음 타 시작(스태미나 부족이면 현재 타 끝까지).
+- 피해가 실제로 들어간 경우에만 `HitFeedback.PlayHit(Light|Heavy)`. 판정 구간 동안 `CombatFX.SetSword(true)`.
+- `AttackLight` 3타: (1.67s, .50–.84, ×1.0, 포이즈20) / (1.40s, .42–.70, ×1.1, 20) / (1.87s, .56–.94, ×1.3, 30), 각 스태미나 12, 전진 80cm.
+- `AttackHeavy` 1타: 3.03s, 1.36–1.82, ×2.2, 포이즈 60, 스태미나 30, 전진 0(모션이 약 2.6m 이동 → 캡슐이 따라감).
+### 8-3. 회피 `UXxGameplayAbility_Dodge`
+- 방향 = 이동 입력(없으면 뒤). 무적 `.05–.3s`(`State.Invulnerable`), `State.Dodging`.
+- 표시 메시 있음: 8방향 `RollMontages`(0=앞, 시계방향 45°, `SelectRollIndex` = atan2/45) × `RollPlayRate 1.6`, 모션이 캡슐 이동을 이끈다, 지속 = 모션 길이/속도.
+- 표시 메시 없음: `ApplyConstantMove(450cm, .35s)` 대시. 취소되면 몽타주 정지.
+### 8-4. 막기 `UXxGameplayAbility_Guard`
+- 길이 1.13s. 앞 `.3s` = `State.Parrying`, 이후 `State.Guarding`. 경감은 속성 세트가 태그를 보고 처리(6장).
+### 8-5. `UXxGameplayAbility_ApplyEffect`
+- 게임플레이 이벤트 페이로드의 Target에 `EffectId` 적용(데이터 주도 스킬의 기본형).
+
+## 9. 플레이어 캐릭터 (`AXxCharacter`)
+- GASP 로코모션: Walk 200 / Run 500 / Sprint 700(데이터), 웅크리기, 착지 속도 기록, `FillAnimationProperties`(CustomThunk로 애님 BP 구조체 채움).
+- 입력: 로코모션 IMC + 전투 IMC(더 높은 우선순위). **입력 진입점 함수** `InputAttackLight/Heavy/Guard/Dodge/LockOn()`을 입력·AI·테스트가 공통으로 쓴다.
+- 초기화: 처음 한 번 `InitFromStats(UXxPlayerCombatData::Get()->Stats)`와 이동 속도 갱신. 어빌리티 부여: `DefaultAbilities`를 `PossessedBy`/`OnRep_Controller`에서 1회.
+- 표시 메시: 캡슐 메시와 별도인 Manny 표시 메시(`MannyMesh`) + 의상 보조 메시가 포즈를 따름(`FollowVisibleMeshPose`).
+- 전투 모션: `PlayCombatMontage(Montage, bHoldLastPose, PlayRate)`. 애님 BP에 슬롯이 없으면 단일 애니 재생으로 덮고 `PoseOverrideRemaining = 길이/속도` 후 복구. **모션 따라가기**: `CombatMotionBone(pelvis)`의 수평 이동을 샘플링해 캡슐을 옮기고 메시를 캡슐 위로 되돌린다(루트 모션이 꺼진 팩도 이동이 맞음).
+- 피격: 앞/뒤 HitReact 몽타주, 포이즈 붕괴 → `State.Staggered` `StaggerDuration(.8s, 데이터)`, 사망 → `State.Dead` + DeathMontage. 전투 동작·경직·사망 중 이동 입력 차단.
+- `Revive(Transform)`: 상태 태그 초기화, 속성 회복, 위치 이동. `FellOutOfWorld`도 사망 처리.
+
+## 10. 보스
+### 10-1. `AXxBossCharacter`
+- 플레이어와 **같은 GAS 피해 경로**. 원본 메시·스켈레톤·애니를 그대로 쓰고 `PlaySequence(Name, bLoop)`로 단일 애니 재생(이름 → `UAnimSequence` 맵, 누락 애니는 경고 후 건너뜀).
+- 수치는 `UXxBossData`(보스마다 DA, 캐릭터의 `BossData` 소프트 참조, 없으면 클래스 기본값): 이름(BossPhase.Boss와 매칭)·표시 이름, `FXxStatBlock`(MaxHealth 2000, MaxPoise 100, PoiseRegen 0), Move 350, Aggro 2500, Groggy 2.67s, PhaseTransition 2s, Recover .6s, TurnRate 180°/s, AttackFacingAngle 60°, 애니 이름(Idle·Jog_Fwd·Knock_back·Death_front).
+- `ResetBoss(Home)`: 체력·포이즈·상태·두뇌 초기화.
+### 10-2. `UXxBossBrainComponent` (권한 측 틱 상태기계)
+`EXxBossState { Idle, Approach, Attack, Recover, Groggy, PhaseTransition, Dead }`
+- Idle → Approach: `bEngageAllowed`(엔카운터가 켬) && 대상 생존 && 거리 ≤ Aggro.
+- Approach: 대상으로 회전, `PickAttack(거리)` 성공 시 Attack, 아니면 정면일 때 전진(속도 = Base × 페이즈 MoveSpeedRate × 효과 배수).
+- `PickAttack`: 현재 페이즈 PatternSet && Weight > 0 && Min ≤ 거리 ≤ Max && 쿨다운 경과 && (정면이 아니면 Area/Siphon만) → **가중치 추첨**(`FRandomStream`, 시드 주입 가능). 선택은 쿨다운을 소비하지 않고 시작할 때 소비.
+- Attack 타임라인: `[0, Telegraph)` 대상 추적 회전 + 예고 FX 진행 → Telegraph 시점 방향 고정, `StartMove(MoveDistance)` → `ActiveStart`에 임팩트 FX·공격 소리(Slam은 `PlaySlam`) → `[ActiveStart, ActiveEnd)` 판정(대상당 1회 피해·포이즈. 실제로 피해가 들어가면 타격감 Boss, 대상 스태미나 −StaminaDamage, Effect 적용, 보스 Heal) → `Duration` 후 Recover.
+- Recover(.6s) → Approach. 포이즈 붕괴 → Groggy(2.67s, 끝나면 포이즈 회복). PhaseTransition 동안은 `State.Invulnerable`(전환 연출 중 피해 없음). HP 비율 ≤ 다음 페이즈 `EnterHpRate`면 `PendingPhase`; Attack/Groggy가 아닐 때 PhaseTransition(2s) → 페이즈 교체, 오디오 페이즈 2, CombatFX 2페이즈 루프.
+- 테스트 이음새: `InjectTables(Phases, Attacks)`, `SetRandomSeed`, `SetTarget`. 테이블이 없으면 1회 경고.
+
+## 11. 락온·타격감·FX
+- `UXxCombatFeelData`(DataAsset, `Get()`): 락온 획득 2500 / 해제 3000 / 가림 유예 2s / 획득 반각 60° / 전환 임계 .7·쿨다운 .3s, 카메라 보간 7·암 +60(근접 350 이내 +150)·측면 오프셋 70·피치 바이어스 −8(−35~10). 히트스톱 Light .06 / Heavy .12 / Boss .1s, 정지 시간배율 .08, 플래시 .1s, 셰이크 Light .5 / Heavy 1.0, 오버레이 머티리얼.
+- `UXxLockOnComponent`: `Toggle/Clear/SwitchTarget(dir)/LookInput`. 잠금 시 회전 설정·암 길이·소켓 오프셋을 저장했다가 해제 시 복구. `OnTargetChanged`.
+- `UXxLockOnTargetComponent`: `bLockable`, 소켓 `spine_03`, 소켓 없으면 가슴 오프셋(0,0,50).
+- `UXxHitFeedbackSubsystem`: 액터별 `CustomTimeDilation` 정지 + 머티리얼 오버레이 플래시 + 카메라 셰이크. 복구는 **월드 실제 시간**으로(정지된 액터 시간에 의존하지 않음). `PlayHit(Attacker, Victim, Light|Heavy|Boss)`, `PlaySlam(Source)`(거리 감쇠 셰이크), `ResetActor`.
+- `UXxCombatFXData`(DataAsset, `Get()`): `TMap<int32 BossAttackId, FXxAttackFX{Telegraph, Impact, Socket, Scale}>`, 대시(바람·블러·먼지), 검광 좌/우, 플레이어·보스 임팩트, 예고 바닥 원 **디퍼드 데칼**(스칼라 `Progress` 0~1), 페이즈 버스트/루프, 잔상 머티리얼(간격 .2s, 수명 .45s), 임팩트 점광원(6000cd, 650, .35s, 주황).
+- `UXxCombatFXComponent`: `SetDash/SetSword/BeginTelegraph/AdvanceTelegraph/EndTelegraph/PlayAttackImpact/EnterPhaseTwo/PlayHit/Reset`. 잔상은 `UPoseableMeshComponent` 스냅샷. 모든 FX는 Transient로 생성·파괴(수명 관리 일원화).
+
+## 12. 엔카운터 (`UXxEncounterSubsystem`)
+`EXxEncounterState { Idle, Fighting, PlayerDead, Victory }`, `OnStateChanged(Old, New)`, `OnActorsChanged`.
+- `OnWorldBeginPlay`에서 액터 태그로 찾아 `BindActors(Player, Boss, Checkpoint, Door, Start)`: `Xx.Boss`, `Xx.Checkpoint.Gate`, `Xx.Arena.Door`, `Xx.Player.Start`(플레이어는 첫 컨트롤러의 폰). 보스·체크포인트가 없으면 비활성.
+- 체크포인트: 반경 400 안에 들어오면 활성 → 리스폰 지점이 체크포인트로 바뀜.
+- 아레나 진입: 문 기준 아레나 방향으로 `max(300, 문 반두께 + 캡슐 반경 + 1)` 넘어가면 보스 교전 허용 + Fighting + 문 닫힘(1s 보간, 문 이동 소리).
+- 플레이어 사망 → PlayerDead → 3s 후 보스 `ResetBoss(Home)`·교전 금지, 플레이어 `Revive`, 문 열림, Idle. 보스 사망 → Victory.
+- `RestartCheckpoint()`(메뉴 "체크포인트에서 다시"): 대기 없이 즉시 리스폰.
+
+## 13. 오디오 (`UXxAudioSubsystem` + `UXxAudioData`)
+- `UXxAudioData`(하드 참조로 패키지 포함): Whooshes, Impacts, BossAttacks, Music, Distant, Wind, Fire, Slide, Footsteps, PlayerVoices, BossVoices, ControlBus 배열, 보스/환경 감쇠.
+- `EXxAudioChannel { SFX, Voice, Music }` → AudioModulation 컨트롤 버스. `SetChannelVolume`는 `UXxGameUserSettings`(Config=GameUserSettings)에 저장 → 맵 전환·재실행 유지.
+- 상태 연동(이벤트 구독): `Initialize`에서 엔카운터를 의존성으로 초기화하고 `OnStateChanged`→`EncounterChanged`(음악 시작/정지/승리), `OnActorsChanged`→플레이어·보스 `OnDamaged` 구독→`PlayDamage`, `OnDoorMoving`→`MoveDoor`. 보스 두뇌는 `SetPhase`·`PlayBossAttack(Kind)`를 직접 부른다(규칙→표현). 환경 루프·원거리 효과음·발소리는 오디오 틱.
+- 몽타주 사운드 노티파이(휘두름·접촉·기합)는 에디터 라이브러리 함수가 몽타주 이름 규칙으로 재생성.
+
+## 14. UI (CommonUI + MVVM, 리퀴드 글라스)
+- `AXxPlayerController`가 `UXxUIRootLayout`(GameStack, MenuStack) 소유. `PushGame/PushMenu/PopMenu/ClearMenus`.
+- 일시정지: 전용 입력 컨텍스트, `OpenPauseMenu/Close/Toggle`, `OpenSettings`, `BackMenu`, `StartGame`, `ReturnToTitle`, `RestartCheckpoint`. 메뉴 입력 모드 전환(`ApplyInputMode`). 사망 중에는 메뉴 차단.
+- `UXxMenuWidget`(Abstract, `UCommonActivatableWidget`): 입력 구성·첫 포커스·뒤로가기·키 미리보기 공통, 파생은 `BuildMenu(VerticalBox)`만 구현. Title(뒤로가기 무시)·Pause·Settings(SFX/Voice/Music 슬라이더).
+- `UXxGlassButton`(`UCommonButtonBase`) + `UXxGlassButtonStyle`: 키보드·패드 포커스와 마우스 호버를 같은 유리 림 MID로 표시.
+- HUD: `UXxCombatHUDViewModel`(`UMVVMViewModelBase`, FieldNotify) — PlayerHealth/Max, PlayerStamina/Max, BossVisible, BossDisplayName, BossHealthRate, EncounterState, LockOnTarget + 계산 필드 HealthRate/StaminaRate/IsPlayerDead/IsVictory. **GAS 속성 변경 델리게이트와 엔카운터 이벤트만 구독**.
+- `UXxCombatHUDWidget`: 네이티브로 레이아웃 생성(`RebuildWidget`; 파이썬에 WidgetTree 편집이 노출되지 않기 때문). 게이지는 머티리얼 MID, 락온 마커, 결과 패널(사망/승리) 페이드.
+- `FXxHUDDamageTrail`: 피해 시 목표만 내리고 .4s 대기 후 .3s 동안 따라감, 회복은 즉시.
+- `AXxTitleGameMode`: 플레이어 없이 진입로 시네 카메라(천천히 흔들림) + 타이틀 메뉴.
+
+## 15. 검증 지원 코드
+- `XxTestFixture::FWorldFixture`: 오디오·내비·AI 없는 경량 Game 월드(고유 이름). `WarmUpTimers`(`++GFrameCounter` + `Tick(0)`).
+- 테스트 이름: `<Game>.<영역>.<하위|PIE>.<항목>`(항상 4단계, 17장). 보스 1종 버티컬 슬라이스 기준 규모 감: 약 90개(현재 91) — Boss ~18, Combat ~15, Effects ~10, Encounter ~10, Characters ~8, UI ~8, Framework ~6, FX ~6, 그 밖(Audio, Levels, Playthrough, Visual) ~9.
+- 패키지 검증 서브시스템(명령줄로만 활성): `UXxSmokeSubsystem`(실제 메뉴·맵 전환 단계별 PASS/FAIL·캡처), `UXxPerfSubsystem`(고정 60초 카메라 경로 4구간, frame/game/gpu p95).
+
+## 16. 확장 레시피
+- **새 플레이어 기술**: `UXxGameplayAbility` 파생 → 수치는 `UXxPlayerCombatData`에 필드 추가 → 비용(`GetStaminaCost`)·쿨다운·태그 → `ActivateAbility`에서 루즈 상태 켜기 → `AbilityTick`에서 구간 판정 → `EndAbility`에서 정리 → 몽타주 실패 시 폴백 → `DefaultAbilities` 등록 → 입력 진입점 → 테스트(헤드리스 + PIE).
+- **새 보스 공격**: BossAttack 행 추가(PatternSet·Kind·시간·범위·가중치) → 필요하면 `CombatFXData.BossAttacks[Id]` → 오디오 Kind 매핑 → BossBrain 테스트에 `InjectTables`로 시나리오.
+- **새 상태 효과**: 태그 선언 → EffectDefs 행(StateTag·배수·DoT·StackRule) → 사용처에서 `ApplyEffectById` → HUD/FX 표시가 필요하면 ViewModel 필드.
+- **새 보스**: `UXxBossData` 에셋 하나(이름·스탯·애니 이름·기본값) + 보스 BP의 `BossData` 지정 + BossPhase/BossAttack 행 + 레벨 태그. 행동이 다를 때만 `AXxBossCharacter`/두뇌를 파생한다.
+- **새 메뉴**: `UXxMenuWidget` 파생 `BuildMenu` → 컨트롤러에서 `PushMenu` → 첫 포커스·뒤로가기 확인.
+
+## 17. 네이밍 규칙 (코드·에셋·도구·문서 공통)
+목표: 이름만 보고 종류·위치·역할을 알 수 있게 한다. 규칙을 바꾸면 기존 이름도 한 번에 옮긴다(CoreRedirects + 에셋 이름 이전 스크립트).
+
+### 17-1. C++
+| 대상 | 규칙 | 예 |
+|---|---|---|
+| 접두사 | U(UObject)·A(Actor)·F(struct)·E(enum)·I(interface) + `Xx` | `UXxAttributeSet`, `FXxMeleeStage` |
+| 약어 | 모두 대문자 | `HUD`, `UI`, `FX`, `PIE`, `AI` (`UXxCombatHUDWidget`) |
+| 파일 | 파일 이름 = 클래스 이름(접두 글자 제외). **UCLASS는 파일당 하나** | `XxCombatHUDWidget.h` |
+| 같이 둬도 되는 것 | 그 클래스만 쓰는 작은 USTRUCT·UENUM·델리게이트 | `FXxMeleeStage` in MeleeAttack 헤더 |
+| 접미사 | `…Subsystem`, `…Component`, `…Data`(DataAsset), `…Widget`, `…MenuWidget`, `…ViewModel`, `…Settings`, `…Library`(BlueprintFunctionLibrary) | `UXxBossBrainComponent` |
+| GAS | `UXxGameplayAbility_<동작>`, `UXxGameplayEffect_<효과>` | `UXxGameplayAbility_Dodge` |
+| 델리게이트 | `FXx<주어><사건>Delegate`(시그니처가 같아도 사건마다 따로), 멤버 `On<사건>`, 처리 함수 `Handle<사건>` | `FXxLockOnChangedDelegate OnTargetChanged`, `FXxPoiseBrokenDelegate OnPoiseBroken` |
+| 변수 | bool은 `b…`, 입력 매개변수가 멤버를 가리면 `In…` | `bLocked`, `InRadius` |
+| 폴더 | 기능 영역(Game, Core, Network, Backend, Content, Abilities/Combat, Abilities/Effects, Characters, Boss, Combat, Encounter, Audio, UI, Debug, Tests). include는 모듈 루트 기준 | `"Game/XxPlayerController.h"` |
+| 태그 | `State.*`, `Ability.*`, `Data.*` / C++ 상수 `XxTags::State_Dodging` | |
+| 콘솔 명령 | `Xx.<영역>.<동작>` | `Xx.Net.Ping` |
+| 테스트 | 파일 `Xx<영역>[<하위>][PIE]Test.cpp`(파일 하나에 한 영역·PIE 여부만), 이름 `<Game>.<영역>.<하위|PIE>.<항목>`, 여러 파일이 쓰는 픽스처는 `Tests/Xx<영역>TestFixture.h` | `Game.Combat.Dodge.RollDirections` |
+| 이름 변경 | 클래스 이름을 바꾸면 `[CoreRedirects] +ClassRedirects`를 같이 넣는다 | |
+
+### 17-2. 에셋 (`/Game/Xx/<영역>/<종류 접두사>_<본문>`)
+- 본문은 밑줄로 나눈 PascalCase 토큰, 약어 대문자. **에셋 이름에 프로젝트 이름(Xx)을 넣지 않는다**(폴더가 이미 나타낸다).
+- 외부 팩은 원본 경로(`/Game/<팩>`)를 유지한다. 프로젝트가 만든 사본은 `/Game/Xx/` 아래 두고, 여러 팩의 사본이 섞이면 원본 팩 폴더로 나눈다(`FX/Materials/<팩>/M_…`). 해시 꼬리로 구분하지 않는다.
+- 샘플에서 따라온 기반 에셋(버스·서브믹스 등)은 출처 토큰을 남긴다(`CB_AncientOne_SFX`).
+
+| 접두사 | 종류 | 접두사 | 종류 |
+|---|---|---|---|
+| `L_` | 맵 | `BP_` / `WBP_` / `ABP_` | 블루프린트 / 위젯 / 애님 BP |
+| `A_` | 애니 시퀀스 | `AM_` / `BS_` / `AO_` | 몽타주 / 블렌드 스페이스 / 에임 오프셋 |
+| `SKM_` / `SK_` / `PA_` | 스켈레탈 메시 / 스켈레톤 / 피직스 에셋 | `SM_` | 스태틱 메시 |
+| `M_` / `MI_` / `MF_` / `MPC_` | 머티리얼 / 인스턴스 / 함수 / 파라미터 컬렉션 | `T_` (+`_D`·`_N`·`_MR`) | 텍스처(디퓨즈·노멀·금속거칠기) |
+| `NS_` / `NE_` / `ET_` | 나이아가라 시스템 / 이미터 / 이펙트 타입 | `DA_` / `DT_` / `ST_` | 데이터 에셋 / 데이터 테이블 / 문자열 테이블 |
+| `S_` / `SC_` / `MS_` / `MSP_` | 사운드 웨이브 / 큐 / 메타사운드 / 메타사운드 패치 | `ATT_` / `SCON_` / `SCL_` | 감쇠 / 동시 재생 / 사운드 클래스 |
+| `SMX_` / `SEP_` / `IR_` | 서브믹스 / 서브믹스 이펙트 프리셋 / 임펄스 응답 | `CB_` / `CBM_` / `MPT_` / `MPR_` | 컨트롤 버스 / 버스 믹스 / 모듈레이션 패치 / 파라미터 |
+| `IA_` / `IMC_` | 입력 액션 / 매핑 컨텍스트 | `IK_` / `RTG_` | IK 리그 / 리타기터 |
+| `MHC_` | 메타휴먼 캐릭터 | `CF_` / `CLC_` | 커브 |
+- 규칙은 `Tools/xx_naming.py` 한 곳에 두고 생성 스크립트와 이전 스크립트가 같이 쓴다. 생성 스크립트는 처음부터 규칙 이름으로 만든다(배치 리타깃처럼 도구가 접두를 붙이면 바로 규칙 이름으로 옮긴다).
+- 이름 이전(렌더링 에디터, 한 프로세스): ① 대상 전부를 `AssetTools.rename_assets` **한 번에**(하나씩 옮기면 앞서 옮긴 참조처를 레지스트리가 옛 경로로 기억해 참조가 끊긴다) → ② 더티 패키지 저장 → ③ `scan_paths_synchronous` 재스캔 → ④ 남은 리다이렉터의 참조처(외부 액터·다른 맵)를 `load_package` 후 다시 저장 → ⑤ 재스캔 후 참조처가 없는 리다이렉터만 삭제 → ⑥ `/Game` 전체 참조 누락 0 확인 → ⑦ 코드·스크립트·ini의 경로 문자열을 대응표로 치환. `IAssetTools::FixupReferencers`는 5.8 무인 실행에서 단언 오류·확인창 크래시가 나서 쓰지 않는다. 사용 중인 에셋(ini가 부르는 CommonUI 데이터 등)은 ini 경로를 먼저 바꾼다. 위젯 BP 저장은 썸네일을 그리므로 플레이어 없이도 위젯이 만들어져야 한다(WidgetTree로 생성). 대소문자만 다른 이름 변경은 하지 않는다(Windows·VCS).
+
+### 17-3. 도구·문서
+- 에디터 스크립트 `Tools/task_<주제>.py`(멱등, 머리 docstring에 실행 명령), 공유 모듈 `Tools/xx_<주제>.py`, 셸 진입점 `<동사>_<대상>.cmd/.ps1`(snake_case). 작업 번호를 파일 이름에 넣지 않는다.
+- 문서 `Docs/<분류>/UPPER_SNAKE.md`.
+
+## 18. UE 5.8 C++ 함정
+1. 각 .cpp 첫 include는 자기 헤더(IWYU). 서브폴더 include는 모듈 루트 기준.
+2. `*.Target.cs`에 namespace 금지, `BuildSettingsVersion.V7`.
+3. UCLASS BlueprintNativeEvent는 `Obj->Foo()`로 호출(`Execute_`는 인터페이스 전용).
+4. UFUNCTION 파라미터명이 멤버명을 가리면 UHT 오류 → `InX`.
+5. reparent 후 헤더 touch → 재빌드. 파이썬에서 고칠 필드는 `EditAnywhere`.
+6. ASC 기본 구현은 태스크가 없으면 틱을 끈다 → `GetShouldTick()` 재정의.
+7. 타이머 테스트는 `WarmUpTimers` 필요. 판정은 타이머 대신 틱 누적.
+
+
+---
+
+# 부록 A. 부트스트랩 — 빈 프로젝트에서 같은 뼈대 세우기
+
+## A-1. 출발 프로젝트
+- **Epic "Game Animation Sample"(GASP) UE 5.8판**에서 시작하고 C++ 모듈을 추가한다. 로코모션은 직접 만들지 않고 샘플을 그대로 쓴다.
+- 코드가 경로로 기대는 샘플 에셋(이동하거나 이름을 바꾸지 않는다):
+  | 경로 | 역할 |
+  |---|---|
+  | `/Game/Blueprints/SandboxCharacter_CMC_ABP` | 소스 애님 BP(Motion Matching, CMC판). 캡슐용 숨김 메시에 붙인다 |
+  | `/Game/Blueprints/BPI_SandboxCharacter_Pawn` | 애님 BP가 폰에서 속성을 읽는 인터페이스 |
+  | `/Game/Blueprints/RetargetedCharacters/ABP_GenericRetarget` | 표시 메시 런타임 리타깃(소스 메시 포즈 복사) |
+  | `/Game/Characters/UEFN_Mannequin/Meshes/SKM_UEFN_Mannequin` | 소스 메시(숨김) |
+  | `/Game/Characters/UE5_Mannequins/Meshes/SKM_Manny` | 표시 메시(전투 몽타주 재생 대상) |
+  | `/Game/Input/IMC_Sandbox`, `IA_Move/Look/Look_Gamepad/Jump/Walk/Sprint/Crouch` | 로코모션 입력 |
+- 샘플의 DataDriven CVar(`DDCvar.*`)와 렌더 설정(Lumen, VSM, Nanite)은 그대로 둔다.
+
+## A-2. 캐릭터 BP 결선 (`BP_Character`, 커맨드릿으로 재현)
+- 부모 `AXxCharacter`. GASP 폰 인터페이스를 구현하고, 인터페이스의 애니 속성 함수 그래프 안에서 `FillAnimationProperties(구조체)`를 호출해 반환한다.
+- `FillAnimationProperties`는 CustomThunk로 **구조체 필드 이름**을 보고 채운다: `Velocity`, `InputAcceleration`, `GroundNormal`, `GroundLocation`, `LandVelocity`, `ActorTransform`, `AimingRotation`, `OrientationIntent`, `WantsToWalk`, `WantsToSprint`, `WantsToCrouch`, `WantsToStrafe`(락온 중 true), `JustLanded`, `InputState`. 모르는 필드는 건드리지 않는다.
+- 기본 메시 = UEFN + 소스 ABP(숨김, 틱은 유지). `MannyMesh` = Manny + `ABP_GenericRetarget`. 의상 메시는 `MannyMesh`의 리더 포즈를 따른다.
+- 입력 프로퍼티는 A-1 입력 + 전투 `IMC_Combat`, `IA_AttackLight/AttackHeavy/Guard/Dodge/LockOn`. 피격·사망 몽타주, `DefaultAbilities`(약·강공격, 회피, 막기).
+- 외형 BP(메타휴먼 등)는 `BP_Character`의 자식으로 만든다.
+
+## A-3. 플러그인 (uproject)
+GameplayAbilities, EnhancedInput, CommonUI, ModelViewViewModel, Metasound, AudioModulation, PoseSearch, Chooser, BlendStack, MotionWarping, AnimationWarping, AnimationLocomotionLibrary, CurveExpression, EngineCameras, Mover, NetworkPrediction, DrawDebugLibrary, DrTableSystem, (선택) MetaHumanCharacter·MetaHumanSDK·RigLogic·HairStrands, (에디터 전용) CascadeToNiagaraConverter, ModelingToolsEditorMode, ModelContextProtocol + 툴셋들.
+
+## A-4. 모듈 의존성
+- 런타임 `<Game>`: Core, CoreUObject, Engine, AudioMixer, Niagara, AudioModulation, AnimGraphRuntime, EngineCameras, InputCore, EnhancedInput, GameplayAbilities, GameplayTags, GameplayTasks, UMG, CommonUI, CommonInput, CinematicCamera, Json, ModelViewViewModel, FieldNotification, DrTableRuntime / private: Slate, SlateCore, NavigationSystem, (에디터 빌드) UnrealEd, AssetRegistry. `PublicIncludePaths.Add(ModuleDirectory)`.
+- 에디터 `<Game>Editor`: Core, CoreUObject, Engine, UnrealEd, AssetRegistry, AssetTools, AudioModulation, BlueprintGraph, Kismet, EnhancedInput, Json, JsonUtilities, NavigationSystem, `<Game>`. 파이썬이 못 하는 편집만 둔다(캐릭터 BP 결선 커맨드릿, OFPA·내비 볼륨, 메뉴·사운드 에셋 보조).
+
+## A-5. 설정 (ini)
+| 파일 · 섹션 | 항목 |
+|---|---|
+| DefaultEngine `[/Script/EngineSettings.GameMapsSettings]` | `GameInstanceClass=/Script/<Game>.XxGameInstance`, `GameDefaultMap=/Game/Xx/Maps/L_Title` |
+| DefaultEngine `[/Script/Engine.Engine]` | `GameUserSettingsClassName=/Script/<Game>.XxGameUserSettings` |
+| DefaultEngine `[CoreRedirects]` | 클래스 이름을 바꿀 때마다 `+ClassRedirects` |
+| DefaultGame `[/Script/UnrealEd.ProjectPackagingSettings]` | `MapsToCook` 타이틀·아레나, `DirectoriesToAlwaysCook` UI·Input·Audio(코드가 경로로만 부르는 에셋). 테이블 폴더는 플러그인이 쿡하므로 넣지 않는다 |
+| DefaultGame `[/Script/CommonInput.CommonInputSettings]` | `bEnableEnhancedInputSupport=True`, `InputData=BP_UIInputData_C` |
+| DefaultGame `[CommonInputPlatformSettings_Windows …]` | `ControllerData` 키보드·게임패드 BP |
+| DrTable 설정 | `AssetRoot=/Game/Data` |
+
+## A-6. 게임 모드·맵
+- `AXxGameMode`: `PlayerControllerClass=AXxPlayerController`. `DefaultPawnClass`는 외형 BP 우선순위 목록(예: `BP_Greystone` → `BP_Hero` → `BP_Character`)에서 처음 불러지는 것, 모두 없으면 C++ 클래스.
+- 타이틀 맵 월드 설정의 GameMode Override = `AXxTitleGameMode`(플레이어 없이 시네 카메라 + 타이틀 메뉴). 게임 맵은 기본 게임 모드.
+- HUD 위젯 클래스는 `/Game/Xx/UI/WBP_CombatHUD`(없으면 C++ 클래스).
+- 아레나 맵: 월드 파티션 + OFPA. 액터 태그 `Xx.Boss`(보스 배치), `Xx.Checkpoint.Gate`, `Xx.Arena.Door`(정적 메시 문, 런타임에 Movable로 바꾸고 바닥까지 내려 닫음), `Xx.Player.Start`. NavMesh 볼륨(테스트가 경로를 확인). 보스는 내비 없이 `AddMovementInput`으로 직진한다.
+
+## A-7. 코드가 경로로 찾는 에셋
+| 경로 | 쓰는 곳 |
+|---|---|
+| `/Game/Xx/Combat/DA_PlayerCombat` | `UXxPlayerCombatData::Get()`(없으면 CDO 기본값) |
+| `/Game/Xx/Combat/Boss/DA_Boss<이름>` | 보스 캐릭터 `BossData`(없으면 CDO 기본값) |
+| `/Game/Xx/Combat/DA_CombatFeel` | `UXxCombatFeelData::Get()`(없으면 CDO 기본값) |
+| `/Game/Xx/FX/DA_CombatFX` | `UXxCombatFXData::Get()` |
+| `/Game/Xx/Audio/DA_Audio` | 오디오 서브시스템 |
+| `/Game/Xx/UI/ST_UI` | 메뉴 문구 키: Title, Start, Settings, Quit, Paused, Continue, Restart, ToTitle, SFX, Voice, Music, Back |
+| `/Game/Xx/UI/M_UI_Glass` | 유리 패널·버튼(파라미터 `PanelSize`, `CornerRadius`, `FillOpacity`, `RimStrength`, `Tint`) |
+| `/Game/Xx/Input/IMC_UI`·`IMC_Menu`, `IA_Pause/UIClick/UIBack` | 메뉴 입력(우선순위 200), 일시정지 |
+| `/Game/Xx/Maps/L_Title`, `L_BossArena` | 시작·재시작 이동 |
+| `/Game/Data/DA_<Table>` | DrTable 구운 테이블 |
+
+# 부록 B. 동작 상세 (구현 기준)
+
+- **일정 속도 이동**(`ApplyConstantMove`, 보스 `StartMove`): `FRootMotionSource_ConstantForce`, Override 누적, 우선순위 5, `Force = 방향 × 거리 / 시간`, 끝 속도 Clamp(회피 대시는 지정값, 보스는 0). 같은 이름 소스를 먼저 지운다.
+- **모션 따라가기**: 매 틱 `MotionTime += dt × PlayRate`; 기준 뼈(pelvis)의 메시 공간 위치를 부모 사슬을 곱해 구하고 Z=0; 직전 샘플과의 차이를 표시 메시 회전으로 월드 변환해 `SafeMoveUpdatedComponent`(막히면 `SlideAlongSurface`); 표시 메시는 `기준 위치 − 회전 × 누적 오프셋`으로 되돌려 캡슐 위에 둔다. 슬롯이 없는 애님 BP면 단일 애니 재생으로 덮고 `길이/속도` 뒤 복구.
+- **락온 대상 고르기**: 획득 거리 안 + 시야 반각 안 + 화면 안 + 가시(트레이스) 후보 중 `|요(yaw) 차| + 거리×0.001`이 가장 작은 것. 전환(dir≠0)은 그 방향으로 1° 넘게 떨어진 후보만. 해제: 대상 무효·사망·해제 거리 초과·가림 유예 초과.
+- **락온 카메라**: 컨트롤 회전을 대상(가슴) 방향으로 `RInterpTo(속도 7)`, 피치 = 대상 피치 + 바이어스(−8)를 [−35, 10]으로 고정; 몸 요도 같은 속도로 보간. 근접도 `Close = 1 − clamp(거리/350)`; 암 = 원래 + 60 + 150×Close, 측면 오프셋 = 70×(1−Close). 해제하면 오프셋이 원래 값에 닿을 때까지 보간 후 복구.
+- **보스 회전·정면**: `FixedTurn(현재 요, 목표 요, TurnRate×dt)`; 정면 = 전방·대상 방향 내적 ≥ cos(60°).
+- **타격감**: 공격자·피격자 모두 `CustomTimeDilation = 이전값 × 0.08`(Light .06/Heavy .12/Boss .1초, 겹치면 긴 쪽); 피격자 보이는 스켈레탈 메시에 오버레이 머티리얼 .1초; 셰이크 대상은 Boss면 피격자, 아니면 공격자(로컬 플레이어일 때만), Light는 약한 셰이크. 내려찍기는 1500 안 플레이어에게 `1 − 거리/1500` 세기. 복구는 월드 실시간.
+- **오디오**: 원거리 원샷 16~24초마다 플레이어 주변 1800~3200 반경 임의 방향; 보스 발소리는 수평 속도 > 80일 때 .65초 간격. 교전 시작 → 페이즈 1, 음악 2초 페이드인(.65), 보스 음성; 플레이어 사망 → 음악 .3으로, 사망 음성; 승리 → 3초 페이드아웃, 그 밖 .5초. 피격 소리는 매번, 음성은 생존 시만(HP ≤ 30%이면서 피해 ≥ 최대 10%면 큰 신음). 채널 음량은 컨트롤 버스 글로벌 믹스 값(.1초).
+- **HUD 배치(1920 기준)**: 플레이어 패널 (40,40) 420×76 — 체력 게이지 (24,22) 372×12, 기력 (24,46) 372×8; 보스 패널 하단 중앙 (0,−42) 800×96 — 이름 + 게이지 (28,60) 744×16; 결과 띠 전체 폭 180. 게이지 머티리얼 파라미터 `FillRate`, `DelayedRate`(잔상), `Opacity`, `ResultBand`.
+- **엔카운터 문**: 열린 위치에서 문 바운드 아래로 바닥을 트레이스해 닫힌 Z를 구하고 1초 보간.
+
+# 부록 C. 테스트 명세 (다시 만든 코드가 통과해야 할 기대 결과)
+
+이름은 `<Game>.<영역>.<하위|PIE>.<항목>`. PIE 표시가 없는 것은 경량 월드(`FWorldFixture`)·nullrhi에서 돈다.
+
+| 테스트 | 기대 결과 |
+|---|---|
+| Framework.Network.LatencyProfile | 지연 끔이면 즉시, 고정 지연이면 그 시간 뒤 도착, 페이로드 보존 |
+| Framework.Network.PacketPayload | `FInstancedStruct` 페이로드가 왕복 후 같은 타입·값 |
+| Framework.Network.FakeServerReceiveQueue | 가짜 서버 수신 큐가 도착 시각 순서를 지킨다 |
+| Framework.Tables.GeneratedRowLookup | 서브시스템으로 생성 행을 기본키로 찾고 행 수·태그가 맞다 |
+| Framework.Tables.BakedAsset | 구운 에셋 로드, 스키마·내용 해시 기록, 한글 FText 보존 |
+| Framework.Tables.NoRegisteredTablesLoadsWithoutWarning | 등록이 없어도 경고 없이 로드, 등록 안 된 행 조회는 null |
+| Framework.Tables.GameAssets | `AreAllTablesLoaded()` 참, GameAssets 필수 행(Player·PlayerCombat·CombatFX·BossSevarog)의 `path`가 로드되고 형식이 맞다 |
+| Stats.Trait.FormulaDerivesStats | 특성 공식(체력→생명력, 정신→저항 상한 80) |
+| Stats.Trait.InitFromStatsAppliesTraits | 스탯 블록 적용 시 공식대로 최대치 파생, 현재치 = 최대치 |
+| Effects.DataPath.BakedRowAppliesToAbilitySystem | 구운 효과 행(화상 누적·단계 보너스·배수 기본값)이 ASC에 그대로 적용 |
+| Effects.DataPath.ApplyToRouting | Caster/Victim 대상 분기, 없는 Id·대상 누락은 실패하고 아무 영향 없음 |
+| Effects.DataPath.AbilityAppliesEffect | ApplyEffect 어빌리티가 이벤트 대상에게만 효과 적용 |
+| Effects.Modifier.AggregatesAsProduct | 이동·받는·주는 피해 배수가 활성 효과의 곱 |
+| Effects.Modifier.PermanentSurvivesTimedExpiry | 같은 태그 한시 효과가 끝나도 상시 효과 유지, 한시가 우선 |
+| Effects.DamageOverTime.Ticks | ASC 틱 누적으로 주기마다 체력 감소, 단계 바뀌면 새 피해량 |
+| Effects.Stack.AccumulatesCapsAndExpires | 누적 단계 상한, 만료 후 단계 초기화 |
+| Effects.Stack.ReapplyPreservesTickPhase | 주기보다 빠른 재적용도 틱 위상 유지(피해 누락 없음), Refresh는 1단계 |
+| Effects.Stack.MultiplierAndRefresh | 빙결 3단계 이동 0.47배, 보호막 갱신 시 흡수량 재충전 |
+| Effects.Shield.AbsorbsThenExpiresWhenDepleted | 보호막이 먼저 흡수, 초과분만 통과, 소진 시 태그 해제 |
+| Characters.Spawn.InitializesAbilities | BP 스폰 시 ASC·속성 세트 등록, 액터 정보 초기화 |
+| Characters.Spawn.GrantsCombatAbilities | 전투 어빌리티 부여, 전투 입력 매핑·액션 설정됨 |
+| Characters.Spawn.UsesGaspAndRetarget | 숨김 UEFN 소스 메시 + 보이는 Manny 메시 |
+| Characters.Animation.PawnInterface | BP가 GASP 인터페이스 구현, 애니 속성 함수가 구조체 반환 |
+| Characters.Movement.WalkRunSprint | 걷기 200·달리기 500·질주 700, 입력 후 속도 증가 |
+| Characters.Spawn.GameModeUsesGreystone / HeroUsesMetaHuman / GreystoneUsesMetaHumanArmor | 게임 모드 기본 폰이 우선순위 외형 BP, 메타휴먼 몸·갑옷 메시 |
+| Combat.Attack.DamagesTargetOncePerSwing | 한 타에 대상당 피해 1회 |
+| Combat.Attack.LightComboAdvances | 입력 버퍼로 1→2→3타 진행 |
+| Combat.Attack.SpendsStaminaAndBlocksWhenEmpty | 타마다 기력 소모, 부족하면 발동·연계 불가 |
+| Combat.Dodge.InvulnerableWindow | .05~.3초만 무적, 그 밖은 피해 |
+| Combat.Dodge.RollDirections | 입력 방향별 8방향 구르기 번호(0=앞, 시계방향) |
+| Combat.Guard.ParryNegatesAndReturnsPoise | 쳐내기 구간 정면 피해 0, 공격자 포이즈 −40 |
+| Combat.Guard.BlockReducesAndSpendsStamina | 막기 중 피해 30%, 원피해 50% 기력 소모 |
+| Combat.Guard.BackAttackIgnoresGuard | 뒤에서 맞으면 막기·쳐내기 무시 |
+| Combat.Reaction.PoiseBreakStaggers | 포이즈 붕괴 시 경직 태그, 시간 뒤 해제 |
+| Combat.Reaction.DeathBlocksAbilities | 사망 후 어빌리티 발동 불가 |
+| Combat.Feel.HitStopOverlayAndRestore | 히트스톱·오버레이 적용 후 원래 값 복구 |
+| Combat.Feel.ActualMeleeHitAndInvulnerability | 실제 명중에만 타격감, 무적 대상은 없음 |
+| Combat.LockOn.AcquireReleaseAndHUD | 획득·해제, HUD 락온 대상 갱신 |
+| Combat.LockOn.CameraSwitchAndOcclusion | 카메라 암·오프셋 변화, 대상 전환, 가림 유예 후 해제 |
+| Combat.PIE.InputSequence | 실제 맵에서 입력 순서(공격·회피·막기·락온)가 동작, 예고 바닥 원 표시 |
+| Boss.Tables.PhasesAndAttacksLoad | 페이즈·공격 테이블 로드와 패턴 묶음 연결 |
+| Boss.Brain.AggroThenApproach | 인식 거리 안에서 Idle→Approach |
+| Boss.Brain.StaysIdleUntilEngageAllowed | 교전 허락 전에는 Idle 유지 |
+| Boss.Brain.WaitsUntilFacingTarget | 정면이 아니면 전진·일반 공격 보류 |
+| Boss.Brain.PicksOnlyInRangeAndOffCooldown | 사거리 안·쿨다운 끝난 공격만 고름 |
+| Boss.Brain.WeightedPickFollowsData | 같은 시드에서 가중치 비율대로 선택 |
+| Boss.Brain.WarnsOnceWhenTablesMissing | 테이블이 없으면 경고 1회, 크래시 없음 |
+| Boss.Brain.ResetEncounterRestoresInitialState | 리셋 시 상태·페이즈·쿨다운 초기화 |
+| Boss.Attack.DamagesOnceInActiveWindow | 판정 구간에서만, 대상당 1회 피해 |
+| Boss.Attack.MoveDistanceAdvances | 돌진 공격이 이동 거리만큼 전진 |
+| Boss.Attack.SiphonHealsOnHit | 흡수 명중 시 보스 회복 |
+| Boss.Phase.EntersAtDataThreshold | HP가 테이블 진입선 이하면 다음 페이즈 |
+| Boss.Phase.UsesPhaseTwoPatternSet | 2페이즈 패턴 묶음 사용 |
+| Boss.Phase.InvulnerableDuringTransition | 전환 중 무적 |
+| Boss.Reaction.ParryBreaksPoiseIntoGroggy | 쳐내기 반격으로 포이즈 붕괴 → 그로기 |
+| Boss.Reaction.PlayerDamagesBoss | 플레이어 공격이 보스 체력을 깎는다 |
+| Boss.Reaction.DeathStopsEverything | 사망 후 이동·공격·FX 정지 |
+| Boss.PIE.EngagesPlayer | 실제 맵에서 아레나 진입 후 보스가 플레이어를 공격 |
+| Encounter.Setup.InactiveWithoutMarkers | 태그 액터가 없으면 비활성 |
+| Encounter.Checkpoint.ActivatesInRadius | 반경 안에서 체크포인트 활성 |
+| Encounter.Arena.EntryClosesDoorAndStartsFight | 진입 깊이를 넘으면 문 닫힘·Fighting |
+| Encounter.Retry.PlayerRespawnsAfterDelay | 사망 3초 뒤 체크포인트 리스폰 |
+| Encounter.Retry.ResetsBoss / DoorReopens / RevivedPlayerCanAttack | 보스 원위치·문 열림·부활 후 공격 가능 |
+| Encounter.Retry.FallOutOfWorldRespawns | 맵 밖 추락도 사망 처리 후 리스폰 |
+| Encounter.Victory.OpensDoorAndStays | 승리 후 문 열림, 상태 유지 |
+| Encounter.PIE.DeathRetryLoop | 실제 맵에서 사망→리스폰→재도전, 전투 음악 실제 재생 |
+| Audio.Assets.Coverage | 오디오 데이터의 음악·원거리 MetaSound·버스 3개·감쇠·보스 공격 소리 해석 |
+| Audio.Mix.EncounterStateAndPhase | 엔카운터 상태·페이즈에 따라 음악 소스·파라미터 |
+| FX.Data.AllBossAttacks | 모든 보스 공격 Id에 FX 매핑 |
+| FX.Dash.ActivationAndCancellation | 대시 FX 시작·취소 시 정리 |
+| FX.Boss.TelegraphAndInterrupt | 예고 진행도·중단 시 정리 |
+| FX.Boss.PhaseAndRetry | 2페이즈 루프, 재도전 시 초기화 |
+| FX.Boss.ImpactLightLifetime | 충격광이 수명 뒤 꺼짐 |
+| FX.Conversion.ReuseSystem | 변환 스크립트가 시스템을 지우지 않고 다시 채움 |
+| UI.CombatHUD.AttributesAndNotifications | 속성 이벤트로 비율 갱신, 최대치 0 안전, 진입 전 보스 숨김 |
+| UI.CombatHUD.EncounterRetryAndVictory | 교전 시 보스 표시, 사망·승리 결과, 재도전 시 초기화 |
+| UI.CombatHUD.RebindAndShutdown | 폰 교체 시 이벤트 재연결, 종료 시 해제 |
+| UI.CombatHUD.DamageTrailTiming | 잔상 .4초 유지 후 .3초 감소, 회복은 즉시 |
+| UI.Menu.PauseInputMode | 일시정지 시 월드 정지·메뉴 입력·커서, 중복 방지, 계속하기로 복원 |
+| UI.Menu.BlockDuringDeath | 사망 중 메뉴 차단, 사망 타이머는 계속 |
+| UI.Menu.VolumePersistence | 슬라이더 → 버스 값, 설정 파일 재로드 후 유지 |
+| UI.PIE.TitleStartTravel | 타이틀에서 시작하면 아레나 맵으로 이동 |
+| Levels.BossArena.LoadMarkersAndNavigation | 아레나 맵의 태그 액터·내비 경로 |
+| Levels.BossArena.MoodActors | 포스트 프로세스·안개·화톳불 조명 구성 |
+| Arena.PIE.PropShots / Visual.PIE.MoodShots | 소품·분위기 장면 캡처(렌더 모드에서 PNG) |
+| Playthrough.PIE.TitleReframed / EntryToBossDeathRetry | 타이틀 구도, 진입로→보스→사망→재도전 전체 흐름 |
