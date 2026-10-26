@@ -18,9 +18,9 @@
 | --- | --- |
 | `Plugins/DrFramework` | 프레임워크 런타임과 생성 테이블 타입 |
 | `Plugins/DrTableSystem` | [DrTableSystem](https://github.com/ldnjin81/DrTableSystem) 0.10.0 런타임·에디터 지원 |
-| `Source/DrSample` | 모듈 등록만 하는 최소 검증 호스트 |
+| `Source/DrSample` | 샘플 연출·에디터 에셋 생성·PIE 검증 호스트 |
 | `Plugins/DrFramework/Tables/Schemas`, `Enums` | 프레임워크 소유 스키마와 열거형 |
-| `Design/Tables` | 게임 소유 샘플 데이터. GameAssets 경로는 비어 있음 |
+| `Design/Tables` | 게임 소유 샘플 데이터와 GameAssets 경로 |
 | `Docs/FRAMEWORK_FOR_AI.md` | 다른 엔진에서도 재현할 수 있도록 쓴 AI용 설계 명세서 |
 | `Docs/EXTRACTION_REPORT.md`, `rename_map.csv` | 추출 결과, 이식·보류 테스트와 이름 대응표 |
 
@@ -31,16 +31,39 @@
 
 ## 현재 검증 상태
 
-UE 5.8.2에서 `DrSampleEditor Win64 Development` 빌드 성공, 콘텐츠 없는 헤드리스 `DrFramework` 자동화 64/64 성공. 실제 콘텐츠·PIE 검증과 구운 테이블은 소비 게임 단계다. [추출 보고서](Docs/EXTRACTION_REPORT.md)에 제외·부분 이식 항목을 기록했다.
+UE 5.8.2에서 `DrSampleEditor Win64 Development` 빌드 성공, 콘텐츠 없는 헤드리스 `DrFramework` 자동화 64/64 성공. 현재 샘플에는 실제 콘텐츠 연결·PIE 테스트와 구운 테이블이 추가되어 있다. [추출 보고서](Docs/EXTRACTION_REPORT.md)에 제외·부분 이식 항목을 기록했다.
 
 ## 콘텐츠
 
-저장소에는 코드와 직접 만든 데이터만 들어 있다. 마네킹·애니메이션 같은 Epic 콘텐츠는 라이선스상 공개 저장소에 다시 배포할 수 없으므로,
-각자 설치한 Lyra Starter Game·Game Animation Sample에서 `Content/Epic/`으로 복사해 쓴다(복사 도구 준비 중).
+저장소에는 코드, 샘플 BP·맵·입력·몽타주·DataAsset과 구운 테이블이 들어 있다. Epic 원본 메시·시퀀스·머티리얼은 각자 설치한 **Lyra Starter Game**에서 가져온다. 원래 패키지 경로를 보존해 `Content/Characters/`, `Content/Effects/`, `Content/PhysicsMaterials/`로 복사하며 이 폴더는 Git에서 제외한다. `Content/Epic/`으로 옮기지 않는다.
 
+## 샘플 실행
+
+현재 생성된 샘플은 재구성 작업 전의 중간 결과다. 작업 #64의 최종 범위는 가져오기 도구이며, 보존 파일과 후속 확인 항목은 [샘플 인계 노트](Docs/SAMPLE_NOTES.md)를 따른다.
+
+1. UE 5.8.2에서 `DrSampleEditor Win64 Development`를 빌드한다.
+2. 에디터를 닫고 저장소 루트에서 다음 도구를 실행한다.
+
+```powershell
+.\Tools\import_epic_content.ps1 -LyraPath 'C:\Project\EpicSample\LyraStarterGame'
+```
+
+도구는 고정 목록의 115개 에셋을 복사하고, 복사본에서 Lyra 전용 노티파이·에디터 애니메이션 수정자와 물리 재질 참조를 정리한다. Lyra 프로젝트는 변경하지 않는다. 이후 DrFramework 프로젝트의 `L_DrSample` 맵에서 PIE를 시작한다. 입력·BP·구운 `/Game/Data`는 저장소에 있으므로 샘플 에셋을 다시 생성할 필요는 없다.
+
+| 동작 | 키보드·마우스 | 패드 |
+| --- | --- | --- |
+| 이동·시점 | WASD·마우스 | 왼쪽·오른쪽 스틱 |
+| 달리기 | 왼쪽 Shift | 왼쪽 스틱 누르기 |
+| 기본·강공격 | 마우스 왼쪽·오른쪽 | 오른쪽 숄더·트리거 |
+| 회피·점프 | 왼쪽 Alt·Space | 오른쪽·아래쪽 페이스 버튼 |
+| 락온·막기 | 휠 누르기·Q | 오른쪽 스틱 누르기·왼쪽 숄더 |
+
+플레이어 Manny와 적 Quinn이 기존 프레임워크의 이동·대시 회피·근접 공격·추적·피격·사망을 보여 준다. 전투·보스는 포함된 예시 구현이다. 사운드·별도 FX·메뉴 콘텐츠는 제공하지 않아 해당 기능은 기존 대체 동작을 사용한다. 적 공격과 사망은 보스의 기존 시퀀스 경로를 쓰며 일반 피격 몽타주만 샘플 파생 클래스가 연결한다.
+
+재생성 절차와 샘플 전용 클래스·에셋의 연결은 [설계 명세서의 샘플 절](Docs/FRAMEWORK_FOR_AI.md#샘플-콘텐츠-연결과-재현)을 따른다.
 ## 게임에 연결하기
 
-`DrSample`은 모듈 등록만 하는 검증 호스트다. 소비 게임이 BP·맵·DataAsset·입력과 실제 콘텐츠를 공급한다.
+`DrSample`은 콘텐츠 연결 예시와 PIE 검증을 제공하는 소비 게임 모듈이다. 다른 게임도 BP·맵·DataAsset·입력과 실제 콘텐츠를 공급한다.
 
 1. 게임에 `DrFramework`와 `DrTableSystem` 플러그인을 넣고 활성화한다.
 2. 게임 모듈의 `Build.cs`에 `DrFramework` 의존성을 추가한다.
@@ -328,8 +351,8 @@ CPP --> SUB
 등록은 `DrTables.cpp` 한 곳에서 처리한다.
 행 조회는 생성 타입을 통해 서브시스템에 전달되며, 테스트에서는 독립 인스턴스와 행 주입을 쓴다.
 
-현재 샘플의 `GameAssets`에는 `Player`, `PlayerCombat`, `CombatFX`, `Boss` 키만 있고 경로는 비어 있다.
-게임이 에셋 경로를 채우고 별도로 굽는다. 이번 추출 단계에는 구운 테이블이 없다.
+현재 샘플의 `GameAssets`는 `Player`, `PlayerCombat`, `Boss`, `BossAnim_*` 경로를 연결한다. `CombatFX`는 비워 기존 대체 동작을 사용한다.
+게임이 에셋 경로를 채우고 별도로 굽는다. 샘플의 구운 테이블은 `Content/Data`에 포함되어 있다.
 
 시트 문법·등록 매크로·참조 접근자·굽기와 쿡 규칙은
 [명세서 3절](Docs/FRAMEWORK_FOR_AI.md#3-정적-데이터-drtable-플러그인)을 본다.
@@ -463,7 +486,7 @@ HUD는 매 틱 게임 상태를 긁어 오지 않는다. ViewModel이 이벤트�
 ## 검증과 디버그
 
 현재 이식한 자동화는 콘텐츠 없는 경량 월드와 in-memory 데이터로 실행한다.
-콘텐츠·PIE·패키지가 필요한 검증은 소비 게임 단계에서 수행한다.
+샘플의 `DrSample.PIE.BasicCombat`은 실제 맵에서 이동·양쪽 공격·피격·사망을 검증한다. 패키지 검증은 별도 소비 게임 단계다.
 전체 기능의 기대 결과와 현재 이식 범위를 구분해 확인한다.
 
 1. `DrSampleEditor Win64 Development`를 UE 5.8에서 빌드한다.

@@ -30,9 +30,9 @@
 3. DrFramework.uplugin은 DrTableSystem, GameplayAbilities, EnhancedInput, CommonUI, ModelViewViewModel, AudioModulation, Metasound, Niagara, EngineCameras, PoseSearch, Chooser, MotionWarping을 활성화한다. 실제 C++ 링크 모듈은 Build.cs가 기준이다. UnrealEd·AssetRegistry는 에디터 빌드에서만 의존한다.
 4. Config/DefaultEngine.ini의 GameInstanceClass=/Script/DrFramework.DrGameInstance, GameUserSettingsClassName=/Script/DrFramework.DrGameUserSettings와 CommonGameViewportClient를 설정한다. EnhancedInput 클래스와 CommonInput의 Enhanced Input 지원은 샘플 Config를 따른다. 맵·InputData·ControllerData·Cook 목록은 게임 콘텐츠를 만든 뒤 게임이 설정한다.
 5. DrTable 0.10.0 실행 파일 경로를 지정하여 `powershell -File Tools/gen_tables.ps1 -DrTable <drtable.exe>`를 실행한다. `--prefix Dr --ue-plugin`으로 Plugins/DrFramework/Source/DrFramework/TableData/Generated에 타입·등록 코드를 만든다. 스키마/열거형은 플러그인, 데이터는 게임 경로를 입력한다. DrTables의 참조 수식 링크도 이 플러그인 스키마를 가리킨다.
-6. 등록 진입점은 `DRTABLE_AUTO_REGISTER(DrGeneratedTables::RegisterAll<UDrTableSubsystem>)`이며 DrTables.cpp 한 곳에서만 호출한다. 샘플은 구운 테이블이 없으므로 DefaultGame.ini의 DrTableSettings.AssetRoot를 비운다. 실제 게임은 별도 굽기 단계에서 생성한 에셋 폴더와 ExtraAssets를 설정한다. 이번 추출은 DrTableBake를 실행하지 않는다.
+6. 등록 진입점은 `DRTABLE_AUTO_REGISTER(DrGeneratedTables::RegisterAll<UDrTableSubsystem>)`이며 DrTables.cpp 한 곳에서만 호출한다. 샘플은 DrTableBake로 만든 /Game/Data를 DefaultGame.ini의 DrTableSettings.AssetRoot로 지정한다. 소비 게임도 별도 굽기 단계에서 생성한 에셋 폴더와 ExtraAssets를 설정한다.
 7. GameAssets 경로와 BP/DataAsset/몽타주·애니메이션·Niagara·오디오·입력을 게임이 공급한다. 보스는 `BossAssetKey`(EditDefaultsOnly, 기본 Boss) 또는 BossData 속성으로 게임별 데이터를 지정한다. UDrBossData의 기본 BossName/DisplayName은 Boss/보스이다. 구체적인 영웅·적 이름은 게임 데이터에 둔다.
-8. `Build.bat DrSampleEditor Win64 Development -project=<DrFramework.uproject> -WaitMutex -UBARootDir=<쓰기 가능한 경로>`로 빌드한다. 에디터가 종료된 환경에서 `UnrealEditor-Cmd.exe <uproject> -ExecCmds="Automation List; RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended -log`로 테스트한다. Automation 뒤 세미콜론 내부는 RunTests이며 Automation을 반복하지 않는다. 실행 개수가 0이면 성공으로 보지 않는다.
+8. `Build.bat DrSampleEditor Win64 Development -project=<DrFramework.uproject> -WaitMutex -UBARootDir=<쓰기 가능한 경로>`로 빌드한다. 에디터가 종료된 환경에서 `UnrealEditor-Cmd.exe <uproject> -ExecCmds="Automation List; RunTests DrFramework+DrSample" -TestExit="Automation Test Queue Empty" -nullrhi -unattended -log`로 테스트한다. Automation 뒤 세미콜론 내부는 RunTests이며 Automation을 반복하지 않는다. 실행 개수가 0이면 성공으로 보지 않는다.
 
 콘솔은 Dr.Net.Ping/Dr.Profile.Request/Dr.Tables.Reload/Dr.Net.SetLatency, 명령줄은 -DrAutoNetSmoke/-DrSmokeTest/-DrPerfCapture/-DrMenuCapture/-DrCaptureAudio 등 Dr 접두사를 쓴다. -DtTreeQA/-DtArmorQA 등의 PIE 전용 플래그는 이식하지 않은 테스트에만 있어 이번 플러그인에 포함하지 않는다. 원래 Dt.로 시작한 액터 태그도 Dr.로 변경했다. State.*, Ability.*, Data.* 같은 공용 게임플레이 태그는 기존 값을 유지한다. 정확한 이전 이름과 새 이름은 rename_map.csv를 본다. 문서 후반 테스트 목록은 전체 기능의 검증 기준이며 콘텐츠 검증은 소비 게임의 책임이다. 현재 플러그인에 이식한 항목과 보류한 항목은 EXTRACTION_REPORT.md가 기준이다.
 
@@ -529,3 +529,30 @@ DrFramework, DrTableSystem, GameplayAbilities, EnhancedInput, CommonUI, ModelVie
 | Levels.BossArena.MoodActors | 포스트 프로세스·안개·화톳불 조명 구성 |
 | Arena.PIE.PropShots / Visual.PIE.MoodShots | 소품·분위기 장면 캡처(렌더 모드에서 PNG) |
 | Playthrough.PIE.TitleReframed / EntryToBossDeathRetry | 타이틀 구도, 진입로→보스→사망→재도전 전체 흐름 |
+
+## 샘플 콘텐츠 연결과 재현
+
+작업 #64 범위 축소로 아래 샘플은 재구성 전의 보존 상태다. 최종 반영 여부와 남은 확인은 [SAMPLE_NOTES.md](SAMPLE_NOTES.md)를 따른다.
+
+이 절은 게임이 프레임워크에 제공해야 하는 최소 콘텐츠 계약이다. 특정 리소스 공급자에 종속된 코드를 플러그인에 넣지 않는다. `Source/DrSample`은 이 계약의 예시 소비 게임이다.
+
+1. **표시 메시와 애님 BP**: `ADrCharacter` 파생 캐릭터 BP의 숨긴 `Mesh`와 표시 `MannyMesh`를 구분한다. 호환 스켈레톤을 가진 표시 메시와 자체 애님 BP를 MannyMesh에 설정한다. 애님 BP는 이동 블렌드 → `DefaultSlot` → 최종 포즈로 연결한다. 샘플 `ABP_DrSample`은 `UDrSampleAnimInstance.Speed`(소유 Pawn의 수평 속도)를 이동 블렌드 X에 공급한다. 에셋 그래프 생성은 에디터 전용 `UDrSampleContent.BuildAnimationBlueprint`가 담당하며 AnimGraph·BlueprintGraph·KismetCompiler 링크는 Editor 빌드에서만 추가한다.
+2. **플레이어 데이터**: `UDrPlayerCombatData`의 LightStages/HeavyStages에 몽타주·실제 길이·판정 구간·피해·기력·전진 거리를 설정한다. GameAssets.PlayerCombat으로 연결한다. 샘플은 근접 시퀀스로 `AM_DrSample_AttackLight/AttackHeavy`를 만들고 판정은 .25~.45초, 추가 전진은 25cm로 지정한다. 회피 RollMontages를 비워 기존 대시 경로를 사용한다. 피격 앞·뒤와 사망 몽타주는 캐릭터 BP의 해당 속성에 연결한다. DefaultAbilities에 프레임워크 약공격·강공격·회피·막기를 등록한다.
+3. **적 데이터**: `ADrBossCharacter` 파생 BP에 메시와 `UDrBossData`를 설정한다. BossName은 BossPhase.Boss와 맞추고 Phase.PatternSet으로 BossAttack 행을 찾는다. 샘플은 Boss 이름, 두 페이즈, Swing 두 행과 Attack 애니 이름을 사용한다. `GameAssets.BossAnim_Idle/Move/Hit/Death/Attack`이 각각 시퀀스 경로를 제공한다. 기존 보스 API는 몽타주가 아닌 시퀀스를 재생한다. 샘플의 `ADrSampleEnemy`는 일반 피해 델리게이트에서 자체 피격 몽타주를 재생하고 완료 뒤 기본 시퀀스로 돌아간다. 추적·공격·페이즈·사망 판단은 기존 Brain이 수행한다.
+4. **입력**: Axis2D 이동·마우스 시점·패드 시점과 Boolean 공격·회피·락온·달리기·점프·막기 InputAction을 만든다. 이동은 WASD negate/swizzle 및 패드 왼쪽 스틱, 시점은 Mouse2D와 패드 오른쪽 스틱을 각각 매핑한다. 캐릭터 BP의 InputMapping과 각 Action 속성을 설정한다. 조작 목록은 README를 따른다.
+5. **게임 모드와 맵**: `ADrGameMode` 파생 BP의 Pawn과 GameAssets.Player에 플레이어 BP 클래스를 지정한다(경로 끝 `_C`). 맵에는 충돌 바닥·조명·하늘·PlayerStart·NavMeshBoundsVolume·적을 배치한다. 샘플 적은 기본 Brain의 근거리 자동 인식을 사용한다. 별도의 엔카운터 표식은 필수가 아니다. DefaultEngine.ini의 GameDefaultMap/EditorStartupMap과 GlobalDefaultGameMode를 설정한다.
+6. **테이블 굽기**: Design/Tables/GameAssets.xlsx·BossTables.xlsx를 게임 콘텐츠에 맞춰 편집한다. `Tools/gen_tables.ps1 -DrTable <drtable.exe>`를 실행한 뒤 `UnrealEditor-Cmd DrFramework.uproject -run=DrTableBake -Input=<TEMP>/DrFramework-DrTable/client -Out=/Game/Data -nullrhi -unattended`로 굽는다. AssetRoot=/Game/Data를 설정한다. 생성 C++를 손으로 수정하지 않는다. CombatFX와 사운드가 없는 샘플은 기본 연출과 무음 대체 동작을 사용한다.
+
+### Epic 리소스 설치와 재생성
+
+`Tools/epic_content_manifest.txt`는 Manny/Quinn 메시·스켈레톤·물리 에셋·이동 블렌드·선택 시퀀스의 에셋 레지스트리 하드/소프트 패키지 의존성 폐쇄를 고정한다. `/Engine`·`/Script`는 복사하지 않고 `/Game`은 원래 패키지 경로를 보존한다. 현재 115개다. 가져오기는 `Tools/import_epic_content.ps1 -LyraPath <설치된 Lyra 프로젝트>`로 실행한다. 외부 런타임 설치는 필요 없다. 빌드된 DrSampleEditor와 엔진의 PythonScriptPlugin을 사용한다.
+
+정리 단계는 **복사본만** 수정한다. Lyra 전용/로드 불가 노티파이, 에디터 AnimationModifiers 사용자 데이터와 PA_Mannequin의 전용 물리 재질 참조를 제거한다. 런타임 판정은 노티파이를 사용하지 않는다. 의존성 목록을 갱신할 때는 `DRSAMPLE_DISCOVER=1`, `DRSAMPLE_LYRA_PATH=<Lyra 프로젝트>` 환경 변수를 설정한 뒤 DrFramework에서 `Tools/prepare_epic_content.py`를 PythonScript 커맨드릿으로 실행한다. 목록 밖 후보 파일을 제거하고 빈 상태에서 가져오기와 재실행을 검증한다. Lyra 자체를 에디터로 열거나 원본을 저장하지 않는다.
+
+샘플 BP·입력·몽타주·DataAsset·맵은 `Tools/build_sample_content.py`로 다시 만들 수 있다. 실행 형식은 `UnrealEditor-Cmd DrFramework.uproject -run=pythonscript -script=<절대경로>/Tools/build_sample_content.py -EnablePlugins=PythonScriptPlugin -nullrhi -unattended`이다. 스크립트는 이름으로 기존 에셋을 찾아 갱신하며 자체 애님 그래프도 재구성한다. 배포본에는 Content/DrSample과 Content/Data가 포함된다. Epic 복사 대상 폴더는 Git에서 제외한다.
+
+### 실제 PIE 검증
+
+`DrSample.PIE.BasicCombat`은 L_DrSample을 열고 PIE를 시작한다. 1/64초 고정 스텝과 보스 시드 64를 사용하며 종료 시 이전 시간 설정을 복구한다. EnhancedInput 액션 주입으로 이동을 확인한 뒤 프레임워크 공격 입력으로 적 피해·피격, 적 Brain의 추적·공격으로 플레이어 피해·피격, 마지막 공격으로 적 사망 상태·사망 시퀀스를 확인한다. 데스크톱 입력 주입은 하지 않는다. NullRHI에서는 캡처를 생략하며 `-RenderOffscreen` 실행은 `Saved/Screenshots/DrSample/01_idle.png`, `02_attack_hit.png`, `03_player_hit.png`, `04_death.png`를 저장한다.
+
+프레임워크 경량 테스트의 FWorldFixture는 게임의 전투 에셋 수치에 영향받지 않도록 기본값을 임시 적용하고 종료 시 원래 에셋 값을 복구한다. 실제 콘텐츠를 검증하는 PIE 테스트는 이 픽스처를 사용하지 않는다.
