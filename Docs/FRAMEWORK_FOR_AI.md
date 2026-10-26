@@ -1,15 +1,15 @@
 # DrFramework 설계 명세서 — 언리얼 게임 런타임 프레임워크 (AI용, UE 5.8)
 
-장르에 관계없이 게임의 수명·데이터·화면 흐름을 확장하는 코드 기반이다. `Plugins/DrFramework`는 소비 게임 모듈 없이 빌드할 수 있어야 한다. 게임 코드·스타일·에셋 경로·고정 메시지 목록·속성 세트는 포함하지 않는다.
+장르에 관계없이 게임의 수명·데이터·화면 흐름을 확장하는 코드 기반이다. 플러그인(저장소의 `unreal/DrFramework`, 게임에는 `Plugins/DrFramework` 아래에 둔다)은 소비 게임 모듈 없이 빌드할 수 있어야 한다. 게임 코드·스타일·에셋 경로·고정 메시지 목록·속성 세트는 포함하지 않는다.
 
 ## 샘플 프로젝트 (참고 구현)
 
-이 기반 위에 실제 게임을 얹는 방법은 **DrSample 샘플 프로젝트**(접두사 `Ds`)가 보여 준다. 샘플은 기반 클래스를 상속·설정해 근접 전투 게임 한 판을 만든 예시이며, 명세는 [SAMPLE_DESIGN.md](SAMPLE_DESIGN.md)(샘플 설계 설명서)에 있다.
+이 기반 위에 실제 게임을 얹는 방법은 **[DrSample 샘플 프로젝트](https://github.com/ldnjin81/DrSample)**(접두사 `Ds`)가 보여 준다. 샘플은 기반 클래스를 상속·설정해 근접 전투 게임 한 판을 만든 예시이며, 명세는 [SAMPLE_DESIGN.md](https://github.com/ldnjin81/DrSample/blob/main/Docs/SAMPLE_DESIGN.md)(샘플 설계 설명서)에 있다.
 
 - **참고만 하고 포함하지 않는다.** 소비 게임은 DrFramework 플러그인(정적 데이터가 필요하면 DrTableSystem 포함)만 넣고, 장르 코드는 자기 모듈에 자기 접두사로 둔다. 샘플 코드는 필요한 부분을 보고 따라 만들거나 복사해 출발점으로 삼는다.
 - 샘플에서 볼 수 있는 것: 부팅 단계(연결→Ping→로그인→프로필), 가짜 서버 처리기·메시지 ID 정의, 콘텐츠 등록, 메뉴·HUD 파생과 `UDrUISettings` 설정, 스모크 단계 등록, DrTableSystem 테이블 생성·등록·굽기, GAS 상태 효과·어빌리티·속성 세트, 캐릭터·보스·엔카운터, Lyra 콘텐츠 가져오기와 PIE 검증.
 - 기반 확장 지점과 샘플 구현의 대응은 SAMPLE_DESIGN.md의 "기반에서 확장한 지점" 표를 본다.
-- 샘플은 현재 이 저장소의 `Source/DrSample`·`Content/DrSample`에 있으며, 별도 저장소로 분리할 예정이다(분리 후 링크를 이 절에 둔다).
+- 샘플 저장소는 DrFramework와 DrTableSystem을 git 서브모듈(`Plugins/DrFramework`, `Plugins/DrTableSystem`)로 가져온다. 게임도 같은 방식(서브모듈 또는 복사)으로 플러그인을 넣는다.
 
 ## 모듈 구조와 의존성
 
@@ -82,9 +82,9 @@ UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 �
 2. 소비 게임 모듈에 DrFramework를 의존성으로 추가한다. Target은 namespace 없이 BuildSettingsVersion.V7·EngineIncludeOrderVersion.Latest를 쓴다.
 3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. CommonGameViewportClient를 지정한다.
 4. UI 클래스·입력·맵 설정은 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.
-5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 모듈이 없는 임시 프로젝트(.uproject에 DrFramework 플러그인만 활성화)에 플러그인 폴더만 복사해 `Build.bat UnrealEditor Win64 Development -Project=<임시>.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·다른 플러그인 없이 통과해야 한다.
+5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 저장소의 `Host/DrFrameworkHost.uproject`(코드 모듈 없음, `AdditionalPluginDirectories`로 `unreal`을 가리킴)를 `Build.bat UnrealEditor Win64 Development -Project=Host/DrFrameworkHost.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·다른 플러그인 없이 통과해야 한다.
 6. 에디터가 닫힌 환경에서 Automation List 후 DrFramework와 게임 테스트를 실행한다. 외부 엔진 버전에서는 엔진 API 차이를 조정한다.
 
 ## 검증 명령과 문서 규약
 
-`Build.bat DrSampleEditor Win64 Development -project=<프로젝트> -WaitMutex -UBARootDir=<쓰기 가능한 임시 폴더>`로 소비 호스트를 빌드한다. 자동화는 `-ExecCmds="Automation List; Automation RunTests DrFramework+DrSample" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`다. 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2), 게임 테스트는 게임 모듈 이름을 쓴다. 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 별도 게임 설계서에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
+`Tools/verify.ps1`이 호스트 빌드와 `Automation RunTests DrFramework`를 실행한다(헤드리스: `-ExecCmds="Automation RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`). 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2), 게임 테스트는 게임 모듈 이름을 쓴다(샘플은 DrSample.*, 샘플 저장소에서 실행). 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 각 게임의 설계서(샘플은 SAMPLE_DESIGN.md)에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
