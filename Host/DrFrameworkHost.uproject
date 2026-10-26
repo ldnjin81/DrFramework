@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "",
+  "Description": "DrFramework 단독 빌드·자동화 테스트용 호스트(코드 모듈 없음)",
+  "AdditionalPluginDirectories": [ "../unreal" ],
+  "Plugins": [
+    { "Name": "DrFramework", "Enabled": true }
+  ]
+}
