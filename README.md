@@ -3,7 +3,7 @@
 장르와 무관한 언리얼 엔진 게임 런타임 프레임워크와, 그 위에 게임을 얹는 방법을 보여 주는 샘플 프로젝트다.
 
 - **플러그인 `DrFramework`** — 부팅 흐름·네트워크·가짜 서버·콘텐츠 등록·UI 흐름·검증 틀 같은 재사용 기반만 담는다. 다른 프로젝트 플러그인·GAS에 의존하지 않으며 샘플 없이 단독으로 빌드·테스트된다.
-- **샘플 모듈 `DrSample`(접두사 `Ds`)** — 기반 클래스를 상속해 만든 포함된 예시 구현이다. GAS 상태 효과·어빌리티, 근접 전투·보스·락온·엔카운터·오디오·글래스 UI, 모든 데이터 테이블이 여기에 있다. 필요 없으면 빼고 자기 게임 모듈로 바꾼다.
+- **샘플 프로젝트 `DrSample`(접두사 `Ds`)** — 기반 클래스를 상속해 만든 참고 구현이다. GAS 상태 효과·어빌리티, 근접 전투·보스·락온·엔카운터·오디오·글래스 UI, 모든 데이터 테이블이 여기에 있다. **게임은 샘플을 포함하지 않고 참고만 한다** — 플러그인만 넣고, 장르 코드는 샘플을 보며 자기 모듈에 만든다. 샘플은 별도 저장소로 분리할 예정이다.
 - **권장 동반 플러그인 [DrTableSystem](https://github.com/ldnjin81/DrTableSystem)** — 스키마 기반 정적 데이터 테이블. 프레임워크 코드는 의존하지 않지만 함께 쓰기를 권장한다. 샘플은 git 서브모듈로 쓴다.
 
 의존 방향은 `DrSample → DrFramework`, `DrSample → DrTableSystem`이다. DrFramework는 아무것도 참조하지 않는다.
@@ -122,8 +122,8 @@ SettingsMenuClass=/Script/DrSample.DsSettingsMenuWidget
 HUDClass=/Script/DrSample.DsCombatHUDWidget
 ```
 
-4. 전투·상태 효과가 필요하면 샘플의 `Abilities`·`Characters`를 출발점으로 복사해 쓴다. 테이블은 스키마 생성 → 모듈 등록 → 빌드 → 굽기 순서다(아래 절).
-5. 기반만 필요하면 샘플 모듈과 `Content/DrSample`은 가져오지 않는다.
+4. 전투·상태 효과가 필요하면 샘플의 `Abilities`·`Characters`를 참고해 자기 모듈에 만든다(복사해 출발점으로 삼아도 된다). 테이블은 스키마 생성 → 모듈 등록 → 빌드 → 굽기 순서다(아래 절).
+5. 샘플 모듈(`Source/DrSample`)과 `Content/DrSample`은 게임에 넣지 않는다. 구현 방법은 [샘플 설계 설명서](Docs/SAMPLE_DESIGN.md)와 샘플 코드를 참고한다.
 
 ## 데이터 테이블 (샘플, DrTableSystem)
 
