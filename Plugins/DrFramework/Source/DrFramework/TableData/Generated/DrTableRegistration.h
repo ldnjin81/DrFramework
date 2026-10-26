@@ -3,8 +3,6 @@
 
 #include "CoreMinimal.h"
 #include "DrGeneratedTables.h"
-#include "DrBossAttackTable.h"
-#include "DrBossPhaseTable.h"
 #include "DrEffectDefsTable.h"
 #include "DrGameAssetsTable.h"
 
@@ -16,11 +14,6 @@ namespace DrGeneratedTables
     template <typename TTables>
     void RegisterAll(TTables& Tables)
     {
-        Tables.template Register<FDrBossAttackRow, UDrBossAttackTable>(TEXT("DA_BossAttack"), &UDrBossAttackTable::Rows, &UDrBossAttackTable::PrimaryKeys)
-            .WithSchemaHash(BossAttackSchemaHash)
-            .WithSubKey(TEXT("PatternSet"), &UDrBossAttackTable::PatternSet_Keys, &UDrBossAttackTable::PatternSet_Offsets, &UDrBossAttackTable::PatternSet_Indices);
-        Tables.template Register<FDrBossPhaseRow, UDrBossPhaseTable>(TEXT("DA_BossPhase"), &UDrBossPhaseTable::Rows, &UDrBossPhaseTable::PrimaryKeys)
-            .WithSchemaHash(BossPhaseSchemaHash);
         Tables.template Register<FDrEffectDefsRow, UDrEffectDefsTable>(TEXT("DA_EffectDefs"), &UDrEffectDefsTable::Rows, &UDrEffectDefsTable::PrimaryKeys)
             .WithSchemaHash(EffectDefsSchemaHash)
             .WithSubKey(TEXT("Category"), &UDrEffectDefsTable::Category_Keys, &UDrEffectDefsTable::Category_Offsets, &UDrEffectDefsTable::Category_Indices)

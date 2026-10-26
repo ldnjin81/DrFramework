@@ -7,7 +7,7 @@
 #include "DrGameAssetsRow.generated.h"
 
 USTRUCT(BlueprintType)
-struct FDrGameAssetsRow : public FTableRowBase
+struct DRFRAMEWORK_API FDrGameAssetsRow : public FTableRowBase
 {
     GENERATED_BODY()
 

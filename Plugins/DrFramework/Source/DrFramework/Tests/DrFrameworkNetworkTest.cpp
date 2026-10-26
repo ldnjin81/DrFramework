@@ -41,7 +41,7 @@ bool FDrFakeServerQueueTest::RunTest(const FString &) {
   Server->LatencyProfile.bEnabled = false;
   Server->OpenConnection();
   FDrNetPacket Packet;
-  Packet.Type = EDrNetMessageType::Ping;
+  Packet.Type = FName(TEXT("Ping"));
   Server->SubmitFromClient(Packet);
   TestEqual(TEXT("큐 수"), Server->Test_GetReceiveQueue().Num(), 1);
   Server->CloseConnection();

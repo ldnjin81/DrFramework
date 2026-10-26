@@ -1,6 +1,5 @@
 // 로컬 요청 큐와 프로필 저장소를 사용하는 가짜 서버를 구현한다.
 #include "Backend/DrFakeServer.h"
-#include "Content/DrPlayerProfileContent.h"
 #include "DrFramework.h"
 
 void UDrFakeServer::SubmitFromClient(const FDrNetPacket &Packet) {
@@ -27,11 +26,6 @@ void UDrFakeServer::OpenConnection() {
   Store.Empty();
   ReceiveQueue.Empty();
   LastReceiveArrivalTime = 0.;
-  ActiveSessionToken.Empty();
-  // 원본 대응이 없는 축소 구현으로, 연결마다 프로필 저장소만 초기화한다.
-  FDrPlayerProfileDataSet Profile;
-  Profile.DisplayName = TEXT("Player");
-  Store.Add(TEXT("PlayerProfile"), FInstancedStruct::Make(Profile));
   TickHandle = FTSTicker::GetCoreTicker().AddTicker(
       FTickerDelegate::CreateUObject(this, &UDrFakeServer::Tick));
   OnEndpointConnectionChanged.Broadcast(EDrConnectionState::Connected);
@@ -44,7 +38,6 @@ void UDrFakeServer::CloseConnection() {
   bOnline = false;
   ReceiveQueue.Empty();
   Store.Empty();
-  ActiveSessionToken.Empty();
   LastReceiveArrivalTime = 0.;
   OnEndpointConnectionChanged.Broadcast(EDrConnectionState::Disconnected);
 }
@@ -64,36 +57,17 @@ void UDrFakeServer::ProcessRequest(const FDrQueuedPacket &QueuedPacket) {
         MakeResponse(Request, EDrNetResult::Error, FInstancedStruct()));
     return;
   }
-  switch (Request.Type) {
-  case EDrNetMessageType::Ping: {
-    FDrPingPayload PingPayload;
-    PingPayload.Message = TEXT("pong");
-    OnPacketToClient.Broadcast(MakeResponse(
-        Request, EDrNetResult::Ok, FInstancedStruct::Make(PingPayload)));
-    break;
-  }
-  case EDrNetMessageType::Login: {
-    FDrLoginResponse LoginResponse;
-    LoginResponse.SessionToken = TEXT("fake-session-token");
-    ActiveSessionToken = LoginResponse.SessionToken;
-    OnPacketToClient.Broadcast(MakeResponse(
-        Request, EDrNetResult::Ok, FInstancedStruct::Make(LoginResponse)));
-    break;
-  }
-  case EDrNetMessageType::RequestPlayerProfile: {
-    const FInstancedStruct *ProfilePayload = Store.Find(TEXT("PlayerProfile"));
-    OnPacketToClient.Broadcast(MakeResponse(
-        Request,
-        ProfilePayload ? EDrNetResult::Ok : EDrNetResult::InvalidRequest,
-        ProfilePayload ? *ProfilePayload : FInstancedStruct()));
-    break;
-  }
-  default:
-    OnPacketToClient.Broadcast(MakeResponse(
-        Request, EDrNetResult::InvalidRequest, FInstancedStruct()));
-    break;
+  if (const auto* Handler = Handlers.Find(Request.Type)) {
+    const FDrNetResponse Response = (*Handler)(Request);
+    OnPacketToClient.Broadcast(MakeResponse(Request, Response.Result, Response.Payload));
+  } else if (Request.Type == FName(TEXT("Ping"))) {
+    FDrPingPayload Payload; Payload.Message = TEXT("pong");
+    OnPacketToClient.Broadcast(MakeResponse(Request, EDrNetResult::Ok, FInstancedStruct::Make(Payload)));
+  } else {
+    OnPacketToClient.Broadcast(MakeResponse(Request, EDrNetResult::InvalidRequest, FInstancedStruct()));
   }
 }
+
 FDrNetPacket
 UDrFakeServer::MakeResponse(const FDrNetPacket &Request, EDrNetResult Result,
                             const FInstancedStruct &Payload) const {

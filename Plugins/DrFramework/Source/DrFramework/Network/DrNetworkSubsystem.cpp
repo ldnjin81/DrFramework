@@ -55,7 +55,7 @@ void UDrNetworkSubsystem::SetLatency(float BaseSeconds, float JitterSeconds,
     FakeServer->LatencyProfile = ClientLatency;
   }
 }
-int64 UDrNetworkSubsystem::SendRequest(EDrNetMessageType Type,
+int64 UDrNetworkSubsystem::SendRequest(FName Type,
                                        const FInstancedStruct &Payload,
                                        FDrResponseDelegate OnResponse,
                                        float TimeoutSeconds) {
@@ -118,11 +118,6 @@ void UDrNetworkSubsystem::Dispatch(const FDrNetPacket &Packet) {
   if (Packet.RequestId) {
     FDrPendingRequest PendingRequest;
     if (PendingRequests.RemoveAndCopyValue(Packet.RequestId, PendingRequest)) {
-      if (Packet.Type == EDrNetMessageType::Login &&
-          Packet.Result == EDrNetResult::Ok)
-        if (const FDrLoginResponse *LoginResponse =
-                Packet.Payload.GetPtr<FDrLoginResponse>())
-          SessionToken = LoginResponse->SessionToken;
       FDrNetResponse Response;
       Response.Result = Packet.Result;
       Response.Payload = Packet.Payload;

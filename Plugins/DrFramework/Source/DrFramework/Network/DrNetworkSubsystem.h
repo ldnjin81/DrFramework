@@ -32,12 +32,14 @@ public:
   virtual void Initialize(FSubsystemCollectionBase &Collection) override;
   virtual void Deinitialize() override;
   void Connect();
+  UDrServerEndpoint* GetServerEndpoint() const { return ServerEndpoint; }
+  void SetSessionToken(const FString& Value) { SessionToken=Value; }
   void Disconnect();
   void SetLatency(float BaseSeconds, float JitterSeconds, float FailureRate);
-  int64 SendRequest(EDrNetMessageType Type, const FInstancedStruct &Payload,
+  int64 SendRequest(FName Type, const FInstancedStruct &Payload,
                     FDrResponseDelegate OnResponse, float TimeoutSeconds = 5.f);
   template <typename PayloadType>
-  int64 SendRequest(EDrNetMessageType Type, const PayloadType &Payload,
+  int64 SendRequest(FName Type, const PayloadType &Payload,
                     FDrResponseDelegate OnResponse,
                     float TimeoutSeconds = 5.f) {
     return SendRequest(Type, FInstancedStruct::Make(Payload), OnResponse,

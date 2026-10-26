@@ -23,6 +23,8 @@ UCLASS()
 class DRFRAMEWORK_API UDrFakeServer : public UDrServerEndpoint {
   GENERATED_BODY()
 public:
+  using FHandler = TFunction<FDrNetResponse(const FDrNetPacket&)>;
+  void RegisterHandler(FName Id, FHandler Handler) { Handlers.Add(Id, MoveTemp(Handler)); }
   virtual void SubmitFromClient(const FDrNetPacket &Packet) override;
   virtual void OpenConnection() override;
   virtual void CloseConnection() override;
@@ -47,6 +49,6 @@ private:
   UPROPERTY() TArray<FDrQueuedPacket> ReceiveQueue;
   bool bOnline = false;
   double LastReceiveArrivalTime = 0.;
-  FString ActiveSessionToken;
+  TMap<FName, FHandler> Handlers;
   FTSTicker::FDelegateHandle TickHandle;
 };

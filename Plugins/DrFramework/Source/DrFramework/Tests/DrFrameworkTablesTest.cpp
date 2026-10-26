@@ -1,4 +1,4 @@
-// DrFramework의 실제 테이블(EffectDefs)이 DrTable 플러그인으로 등록·로드·조회되는지 검증한다.
+﻿// 기반 테이블(EffectDefs)이 DrTable 플러그인으로 등록·로드·조회되는지 검증한다.
 // 레지스트리 자체의 동작(정렬 계약, CSR, 해시 검사 등)은 플러그인 테스트(DrTable.*)가 맡는다.
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
@@ -7,6 +7,7 @@
 #include "TableData/Generated/DrGeneratedTables.h"
 #include "DrTableSubsystem.h"
 #include "TableData/Generated/DrEffectDefsRow.h"
+#include "Abilities/Effects/DrEffectTypes.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FDrGeneratedRowLookupTest, "DrFramework.Framework.Tables.GeneratedRowLookup",
@@ -14,18 +15,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
         EAutomationTestFlags::ProductFilter)
 bool FDrGeneratedRowLookupTest::RunTest(const FString &) {
   DrTableTests::FFixture TableFixture;
-  UDrTableSubsystem *Tables = UDrTableSubsystem::Get();
-  TestNotNull(TEXT("엔진 테이블 서브시스템"), Tables);
-  if (!Tables)
-    return false;
-  Tables->RegisterAutoTables();
-  Tables->LoadAllTables();
-
   const FDrEffectDefsRow *Burn = FDrEffectDefsRow::Find(2001);
   TestNotNull(TEXT("생성 기본키 조회"), Burn);
-  if (Burn)
-    TestEqual(TEXT("화상 상태 태그"), Burn->StateTag.ToString(),
-              FString(TEXT("State.Debuff.Burn")));
+  if (Burn) {
+    TestEqual(TEXT("화상 지속 시간"), Burn->Duration, 3.f);
+    // 행을 런타임 효과로 해석하면 단계 보너스가 풀에서 펼쳐진다.
+    const FDrResolvedEffect Resolved = DrEffects::Resolve(*Burn);
+    TestEqual(TEXT("해석된 주기 피해"), Resolved.DamagePerTick, 5.f);
+    TestEqual(TEXT("해석된 단계 보너스 수"), Resolved.StackBonus.Num(), 3);
+    if (Resolved.StackBonus.Num() == 3)
+      TestEqual(TEXT("해석된 3단계 보너스"), Resolved.StackBonus[2], 10);
+  }
 
   const TArray<const FDrEffectDefsRow *> Debuffs =
       FDrEffectDefsRow::FindByCategory(EDrEffectCategory::Debuff);
@@ -45,7 +45,6 @@ bool FDrGeneratedRowLookupTest::RunTest(const FString &) {
             0);
   TestEqual(TEXT("레지스트리 없이 전체 조회"), FDrEffectDefsRow::GetAll().Num(),
             0);
-  UDrTableSubsystem::ClearOverride();
   return true;
 }
 

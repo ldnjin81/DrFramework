@@ -4,6 +4,7 @@
 
 FDrResolvedEffect DrEffects::Resolve(const FDrEffectDefsRow &Row) {
   FDrResolvedEffect Result;
+  Result.DefinitionId = Row.Id;
   Result.StateTag = Row.StateTag;
   Result.Duration = Row.Duration;
   Result.DamagePerTick = Row.DamagePerTick;
@@ -13,7 +14,6 @@ FDrResolvedEffect DrEffects::Resolve(const FDrEffectDefsRow &Row) {
   Result.DamageTakenMultiplier = Row.DamageTakenMultiplier;
   Result.DamageDealtMultiplier = Row.DamageDealtMultiplier;
   Result.ProcInstantDamageCurHpPct = Row.ProcInstantDamageCurHpPct;
-  Result.ProcPoiseDamage = Row.ProcPoiseDamage;
   Result.StackRule = Row.StackRule;
   Result.StackBonus.Append(Row.GetStackBonus());
   return Result;

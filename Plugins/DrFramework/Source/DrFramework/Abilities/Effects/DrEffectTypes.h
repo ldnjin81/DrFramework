@@ -10,6 +10,7 @@ struct FDrEffectDefsRow;
 USTRUCT()
 struct FDrResolvedEffect {
   GENERATED_BODY()
+  UPROPERTY() int32 DefinitionId = 0;
 
   UPROPERTY()
   FGameplayTag StateTag;
@@ -32,8 +33,6 @@ struct FDrResolvedEffect {
   // 적용 즉시 한 번 실행되는 효과
   UPROPERTY()
   float ProcInstantDamageCurHpPct = 0.f;
-  UPROPERTY()
-  float ProcPoiseDamage = 0.f;
   UPROPERTY()
   EDrEffectStackRule StackRule = EDrEffectStackRule::Refresh;
   /** 1단계부터 적용하는 주 수치의 백분율 보너스이다. */

@@ -12,7 +12,7 @@
 #include "DrEffectDefsRow.generated.h"
 
 USTRUCT(BlueprintType)
-struct FDrEffectDefsRow : public FTableRowBase
+struct DRFRAMEWORK_API FDrEffectDefsRow : public FTableRowBase
 {
     GENERATED_BODY()
 
@@ -67,9 +67,6 @@ struct FDrEffectDefsRow : public FTableRowBase
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dr|EffectDefs")
     float ProcInstantDamageCurHpPct = 0.0f;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dr|EffectDefs")
-    float ProcPoiseDamage = 0.0f;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dr|EffectDefs")
     EDrEffectStackRule StackRule = EDrEffectStackRule::Refresh;

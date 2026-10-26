@@ -94,9 +94,9 @@ for name, sequence in {
 
 factory = u.AnimBlueprintFactory()
 factory.set_editor_property('target_skeleton', skeleton)
-factory.set_editor_property('parent_class', u.DrSampleAnimInstance)
+factory.set_editor_property('parent_class', u.DsSampleAnimInstance)
 anim = create(BASE + '/Animations/ABP_DrSample', u.AnimBlueprint, factory)
-if not u.DrSampleContent.build_animation_blueprint(anim, load(LYRA + '/Animations/Locomotion/Unarmed/BS_MM_Unarmed_Jog_Walk')):
+if not u.DsSampleContent.build_animation_blueprint(anim, load(LYRA + '/Animations/Locomotion/Unarmed/BS_MM_Unarmed_Jog_Walk')):
     raise RuntimeError('이동 블렌드 → DefaultSlot 애님 그래프 생성 실패')
 save(anim)
 
@@ -105,9 +105,9 @@ def data(name, cls):
     factory.set_editor_property('data_asset_class', cls)
     return create(BASE + '/Combat/' + name, cls, factory)
 
-combat = data('DA_DrSamplePlayerCombat', u.DrPlayerCombatData)
+combat = data('DA_DrSamplePlayerCombat', u.DsPlayerCombatData)
 for field, montage_name in [('light_stages', 'AttackLight'), ('heavy_stages', 'AttackHeavy')]:
-    stage = u.DrMeleeStage()
+    stage = u.DsMeleeStage()
     stage.set_editor_property('montage', montages[montage_name])
     stage.set_editor_property('duration', montages[montage_name].get_play_length())
     stage.set_editor_property('active_start', .25)
@@ -119,7 +119,7 @@ dodge = combat.get_editor_property('dodge')
 dodge.set_editor_property('roll_montages', [])
 combat.set_editor_property('dodge', dodge)
 save(combat)
-boss_data = data('DA_DrSampleEnemy', u.DrBossData)
+boss_data = data('DA_DrSampleEnemy', u.DsBossData)
 boss_data.set_editor_property('boss_name', 'Boss')
 boss_data.set_editor_property('display_name', u.Text('훈련 상대 / Training Partner'))
 for field, name in [('idle_anim', 'Idle'), ('move_anim', 'Move'), ('groggy_anim', 'Hit'), ('death_anim', 'Death')]:
@@ -131,7 +131,7 @@ boss_data.set_editor_property('stats', stats)
 boss_data.set_editor_property('base_move_speed', 250.0)
 save(boss_data)
 
-player = bp('B_DrSamplePlayer', u.DrCharacter)
+player = bp('B_DrSamplePlayer', u.DsCharacter)
 cdo = u.get_default_object(player.generated_class())
 for component in cdo.get_components_by_class(u.SkeletalMeshComponent):
     if component.get_name() == 'MannyMesh':
@@ -143,10 +143,10 @@ for field, action in [('move_action', 'Move'), ('look_action', 'Look'), ('gamepa
     cdo.set_editor_property(field, actions[action])
 for field, name in [('hit_react_front_montage', 'HitFront'), ('hit_react_back_montage', 'HitBack'), ('death_montage', 'Death')]:
     cdo.set_editor_property(field, montages[name])
-cdo.set_editor_property('default_abilities', [u.DrGameplayAbility_AttackLight, u.DrGameplayAbility_AttackHeavy, u.DrGameplayAbility_Dodge, u.DrGameplayAbility_Guard])
+cdo.set_editor_property('default_abilities', [u.DsGameplayAbility_AttackLight, u.DsGameplayAbility_AttackHeavy, u.DsGameplayAbility_Dodge, u.DsGameplayAbility_Guard])
 u.BlueprintEditorLibrary.compile_blueprint(player)
 save(player)
-enemy = bp('B_DrSampleEnemy', u.DrSampleEnemy)
+enemy = bp('B_DrSampleEnemy', u.DsSampleEnemy)
 cdo = u.get_default_object(enemy.generated_class())
 mesh = cdo.get_component_by_class(u.SkeletalMeshComponent)
 mesh.set_skeletal_mesh_asset(load(LYRA + '/Meshes/SKM_Quinn'))
@@ -157,7 +157,7 @@ cdo.set_editor_property('hit_montage', montages['HitFront'])
 u.BlueprintEditorLibrary.compile_blueprint(enemy)
 save(enemy)
 factory = u.BlueprintFactory()
-factory.set_editor_property('parent_class', u.DrGameMode)
+factory.set_editor_property('parent_class', u.DsGameMode)
 mode = create(BASE + '/B_DrSampleGameMode', u.Blueprint, factory)
 u.get_default_object(mode.generated_class()).set_editor_property('default_pawn_class', player.generated_class())
 u.BlueprintEditorLibrary.compile_blueprint(mode)

@@ -1,13 +1,13 @@
 // 콘텐츠 객체의 수명과 서버 푸시 전달을 관리한다.
 #include "Content/DrContentSubsystem.h"
 #include "Content/DrContentBase.h"
-#include "Content/DrPlayerProfileContent.h"
+#include "Content/DrContentSettings.h"
 #include "Network/DrNetworkSubsystem.h"
 void UDrContentSubsystem::Initialize(FSubsystemCollectionBase &Collection) {
   Collection.InitializeDependency(UDrNetworkSubsystem::StaticClass());
   Super::Initialize(Collection);
-  PlayerProfile = NewObject<UDrPlayerProfileContent>(this);
-  RegisterContent(PlayerProfile);
+  for (const auto& Type : GetDefault<UDrContentSettings>()->ContentClasses)
+    if (auto* Class = Type.LoadSynchronous()) RegisterContent(NewObject<UDrContentBase>(this, Class));
   GetGameInstance()
       ->GetSubsystem<UDrNetworkSubsystem>()
       ->OnServerPush.AddUObject(this, &UDrContentSubsystem::HandleServerPush);
@@ -17,7 +17,6 @@ void UDrContentSubsystem::Deinitialize() {
           GetGameInstance()->GetSubsystem<UDrNetworkSubsystem>())
     NetworkSubsystem->OnServerPush.RemoveAll(this);
   Contents.Empty();
-  PlayerProfile = nullptr;
   Super::Deinitialize();
 }
 void UDrContentSubsystem::RegisterContent(UDrContentBase *Content) {

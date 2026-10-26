@@ -5,15 +5,6 @@
 #include "StructUtils/InstancedStruct.h"
 #include "DrNetTypes.generated.h"
 
-/** 요청과 서버 푸시의 메시지 종류이다. */
-UENUM()
-enum class EDrNetMessageType : uint8 {
-  None,
-  Ping,
-  Login,
-  RequestPlayerProfile,
-  ServerPush_ProfileUpdated
-};
 /** 네트워크 끝점의 연결 상태이다. */
 UENUM()
 enum class EDrConnectionState : uint8 {
@@ -37,7 +28,7 @@ struct FDrNetPacket {
   GENERATED_BODY()
 
   UPROPERTY()
-  EDrNetMessageType Type = EDrNetMessageType::None;
+  FName Type = NAME_None;
   UPROPERTY()
   int64 RequestId = 0;
   UPROPERTY()
@@ -90,20 +81,6 @@ struct FDrPingPayload {
   GENERATED_BODY()
   UPROPERTY()
   FString Message;
-};
-/** 로그인에 사용할 사용자 식별자이다. */
-USTRUCT()
-struct FDrLoginRequest {
-  GENERATED_BODY()
-  UPROPERTY()
-  FString UserId;
-};
-/** 로그인 성공 시 발급되는 세션 토큰이다. */
-USTRUCT()
-struct FDrLoginResponse {
-  GENERATED_BODY()
-  UPROPERTY()
-  FString SessionToken;
 };
 /** 별도 값이 필요 없는 요청에 사용하는 빈 페이로드이다. */
 USTRUCT()

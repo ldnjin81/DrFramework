@@ -11,7 +11,7 @@ void UDrGameplayAbility_ApplyEffect::ActivateAbility(
     const FGameplayAbilityActivationInfo ActivationInfo,
     const FGameplayEventData *TriggerEventData) {
   UDrAbilitySystemComponent *SourceASC = GetDrASC();
-  if (!SourceASC || !HasEnoughStamina()) {
+  if (!SourceASC) {
     EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
     return;
   }
@@ -25,7 +25,6 @@ void UDrGameplayAbility_ApplyEffect::ActivateAbility(
       SourceASC->ApplyEffectById(EffectId, TargetASC, GetDrActor());
   if (bApplied) {
     // 적용이 보장된 뒤 비용과 재사용 대기시간을 커밋한다.
-    CommitStamina();
     CommitCooldown();
   }
   EndAbility(Handle, ActorInfo, ActivationInfo, false, !bApplied);

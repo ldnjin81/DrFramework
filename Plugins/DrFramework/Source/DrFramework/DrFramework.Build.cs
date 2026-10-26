@@ -16,11 +16,6 @@ public class DrFramework : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-            "AudioMixer",
-            "Niagara",
-            "AudioModulation",
-			"AnimGraphRuntime",
-            "EngineCameras",
 			"InputCore",
 			"EnhancedInput",
 			"GameplayAbilities",
@@ -29,11 +24,8 @@ public class DrFramework : ModuleRules
 			"UMG",
             "CommonUI",
             "CommonInput",
-            "CinematicCamera",
             "Json",
-			"ModelViewViewModel",
-			"FieldNotification",
-			"DrTableRuntime"
+			"DrTableRuntime", "DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
@@ -41,11 +33,6 @@ public class DrFramework : ModuleRules
 			"Slate",
 			"SlateCore"
 		});
-		PrivateDependencyModuleNames.Add("NavigationSystem");
-		if (Target.bBuildEditor)
-		{
-			PrivateDependencyModuleNames.Add("UnrealEd");
-            PrivateDependencyModuleNames.Add("AssetRegistry");
-		}
+
 	}
 }

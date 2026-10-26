@@ -5,20 +5,10 @@
 
 namespace DrGeneratedTables
 {
-    inline constexpr TCHAR BossAttackName[] = TEXT("BossAttack");
-    inline constexpr TCHAR BossAttackPrimaryKey[] = TEXT("Id");
-    inline constexpr TCHAR BossAttackSubKeys[] = TEXT("PatternSet");
-    inline constexpr TCHAR BossAttackSchemaHash[] = TEXT("sha256:b1167b7fed433311cb8de93d40ed9898f4d909afaa7295207a3a41c8b2ca6ec4");
-
-    inline constexpr TCHAR BossPhaseName[] = TEXT("BossPhase");
-    inline constexpr TCHAR BossPhasePrimaryKey[] = TEXT("Id");
-    inline constexpr TCHAR BossPhaseSubKeys[] = TEXT("");
-    inline constexpr TCHAR BossPhaseSchemaHash[] = TEXT("sha256:b17313189286346d99632f29af027b5dd711c87fa46536941da3d253f2c95f7f");
-
     inline constexpr TCHAR EffectDefsName[] = TEXT("EffectDefs");
     inline constexpr TCHAR EffectDefsPrimaryKey[] = TEXT("Id");
     inline constexpr TCHAR EffectDefsSubKeys[] = TEXT("Category");
-    inline constexpr TCHAR EffectDefsSchemaHash[] = TEXT("sha256:27e7204999f76f7197e036a76f78727820eac0292361df41ad61358d210b3c2f");
+    inline constexpr TCHAR EffectDefsSchemaHash[] = TEXT("sha256:4019da5559c5062348834e2ecc21762c5f4d2642c7adf84be5c59f822362f1e4");
 
     inline constexpr TCHAR GameAssetsName[] = TEXT("GameAssets");
     inline constexpr TCHAR GameAssetsPrimaryKey[] = TEXT("Name");

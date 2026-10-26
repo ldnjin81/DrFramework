@@ -4,6 +4,6 @@ void UDrContentBase::Initialize(UDrContentSubsystem *InOwner) {
   Owner = InOwner;
 }
 void UDrContentBase::HandleServerPacket(const FDrNetPacket &) {}
-TArray<EDrNetMessageType> UDrContentBase::GetHandledMessageTypes() const {
+TArray<FName> UDrContentBase::GetHandledMessageTypes() const {
   return {};
 }

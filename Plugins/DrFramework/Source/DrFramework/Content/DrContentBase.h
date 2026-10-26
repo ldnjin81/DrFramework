@@ -14,7 +14,7 @@ class DRFRAMEWORK_API UDrContentBase : public UObject {
 public:
   virtual void Initialize(UDrContentSubsystem *InOwner);
   virtual void HandleServerPacket(const FDrNetPacket &Packet);
-  virtual TArray<EDrNetMessageType> GetHandledMessageTypes() const;
+  virtual TArray<FName> GetHandledMessageTypes() const;
 
 protected:
   UPROPERTY() TObjectPtr<UDrContentSubsystem> Owner;
