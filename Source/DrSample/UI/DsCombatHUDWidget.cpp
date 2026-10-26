@@ -1,5 +1,5 @@
 #include "UI/DsCombatHUDWidget.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "UI/DsCombatHUDViewModel.h"
 #include "Combat/DsLockOnTargetComponent.h"
@@ -44,7 +44,7 @@ UCanvasPanel *UDsCombatHUDWidget::MakePanel(UCanvasPanel *Root, FName Name, FVec
   auto *Layers = WidgetTree->ConstructWidget<UOverlay>();
   Place(Root, Layers, Position, Size, Anchor, Alignment);
   auto *Shadow = WidgetTree->ConstructWidget<UImage>();
-  if (auto *Material = LoadObject<UMaterialInterface>(nullptr, *DrGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
+  if (auto *Material = LoadObject<UMaterialInterface>(nullptr, *DsGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
     auto *Instance = UMaterialInstanceDynamic::Create(Material, this);
     Instance->SetVectorParameterValue(TEXT("PanelSize"), FLinearColor(Size.X + 24, Size.Y + 24, 0));
     Instance->SetScalarParameterValue(TEXT("CornerRadius"), Radius);
@@ -63,7 +63,7 @@ UCanvasPanel *UDsCombatHUDWidget::MakePanel(UCanvasPanel *Root, FName Name, FVec
   // 띠는 알파 페이드 재질만 사용해 블러의 직선 경계가 남지 않게 한다.
   if (Name == TEXT("ResultPanel")) Blur->SetVisibility(ESlateVisibility::Collapsed);
   auto *Glass = WidgetTree->ConstructWidget<UImage>();
-  if (auto *Material = LoadObject<UMaterialInterface>(nullptr, *DrGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
+  if (auto *Material = LoadObject<UMaterialInterface>(nullptr, *DsGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
     auto *Instance = UMaterialInstanceDynamic::Create(Material, this);
     Instance->SetVectorParameterValue(TEXT("PanelSize"), FLinearColor(Size.X, Size.Y, 0.f));
     Instance->SetVectorParameterValue(TEXT("Tint"), Tint);
@@ -116,7 +116,7 @@ TSharedRef<SWidget> UDsCombatHUDWidget::RebuildWidget() {
     WidgetTree->RootWidget = Root;
     LockOnMarker = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("LockOnMarker"));
     Place(Root, LockOnMarker, FVector2D::ZeroVector, FVector2D(24, 24), FVector2D::ZeroVector, FVector2D(.5f, .5f));
-    if (auto* Material = LoadObject<UMaterialInterface>(nullptr, *DrGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
+    if (auto* Material = LoadObject<UMaterialInterface>(nullptr, *DsGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
       auto* Instance = UMaterialInstanceDynamic::Create(Material, this);
       Instance->SetVectorParameterValue(TEXT("PanelSize"), FLinearColor(24, 24, 0));
       Instance->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.65f, .12f, .15f));
@@ -132,14 +132,14 @@ TSharedRef<SWidget> UDsCombatHUDWidget::RebuildWidget() {
     auto *PlayerPanel = MakePanel(Root, TEXT("PlayerPanel"), FVector2D(40, 40), FVector2D(420, 76),
         FVector2D(0, 0), FVector2D(0, 0), FLinearColor(.85f, .9f, 1.f), 38.f);
     HealthMaterial = MakeGauge(PlayerPanel, TEXT("HealthGauge"), FVector2D(24, 22), FVector2D(372, 12),
-        *DrGameAssets::Path(TEXT("MI_UI_Health")).ToString());
+        *DsGameAssets::Path(TEXT("MI_UI_Health")).ToString());
     StaminaMaterial = MakeGauge(PlayerPanel, TEXT("StaminaGauge"), FVector2D(24, 46), FVector2D(372, 8),
-        *DrGameAssets::Path(TEXT("MI_UI_Stamina")).ToString());
+        *DsGameAssets::Path(TEXT("MI_UI_Stamina")).ToString());
     BossPanel = MakePanel(Root, TEXT("BossPanel"), FVector2D(0, -42), FVector2D(800, 96),
         FVector2D(.5f, 1.f), FVector2D(.5f, 1.f), FLinearColor(.7f, .3f, .35f), 48.f);
     BossNameText = MakeText(BossPanel, TEXT("BossName"), FText::GetEmpty(), FVector2D(24, 14), FVector2D(752, 32), 21, ETextJustify::Center);
     BossMaterial = MakeGauge(BossPanel, TEXT("BossGauge"), FVector2D(28, 60), FVector2D(744, 16),
-        *DrGameAssets::Path(TEXT("MI_UI_Boss")).ToString());
+        *DsGameAssets::Path(TEXT("MI_UI_Boss")).ToString());
     ResultPanel = MakePanel(Root, TEXT("ResultPanel"), FVector2D(0, 0), FVector2D(1920, 180),
         FVector2D(.5f, .5f), FVector2D(.5f, .5f), FLinearColor::Black, 0.f);
     auto *ResultSlot = CastChecked<UCanvasPanelSlot>(ResultPanel->GetParent()->Slot);

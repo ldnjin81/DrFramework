@@ -3,17 +3,15 @@
 #pragma once
 #include "DrTableSubsystem.h"
 #include "UObject/StrongObjectPtr.h"
-#include "TableData/Generated/DrTableRegistration.h"
 #include "TableData/Generated/DsTableRegistration.h"
 #include "TableData/Generated/DsBossAttackTable.h"
 #include "TableData/Generated/DsBossPhaseTable.h"
-#include "TableData/Generated/DrEffectDefsTable.h"
+#include "TableData/Generated/DsEffectDefsTable.h"
 namespace DsTableTests {
 struct FFixture {
  TStrongObjectPtr<UDrTableSubsystem> Data{NewObject<UDrTableSubsystem>()};
  FFixture() {
   Data->AssetRoot.Empty();
-  DrGeneratedTables::RegisterAll(*Data.Get());
   DsGeneratedTables::RegisterAll(*Data.Get());
   {
    auto* Asset = NewObject<UDsBossAttackTable>(Data.Get());
@@ -387,13 +385,13 @@ struct FFixture {
    Data->ExtraAssets.Add(TSoftObjectPtr<UPrimaryDataAsset>(Asset));
   }
   {
-   auto* Asset = NewObject<UDrEffectDefsTable>(Data.Get());
-   Asset->SchemaHash = DrGeneratedTables::EffectDefsSchemaHash;
+   auto* Asset = NewObject<UDsEffectDefsTable>(Data.Get());
+   Asset->SchemaHash = DsGeneratedTables::EffectDefsSchemaHash;
    {
-    FDrEffectDefsRow Row;
+    FDsEffectDefsRow Row;
     Row.Id = 2001;
-    Row.Category = EDrEffectCategory::Debuff;
-    Row.ApplyTo = EDrEffectApplyTo::Victim;
+    Row.Category = EDsEffectCategory::Debuff;
+    Row.ApplyTo = EDsEffectApplyTo::Victim;
     Row.Duration = 3.0f;
     Row.DamagePerTick = 5.0f;
     Row.Period = 1.0f;
@@ -408,14 +406,14 @@ struct FFixture {
     Row.StateTag = FGameplayTag::RequestGameplayTag(FName(TEXT("State.Debuff.Burn")), false);
     Row.TriggerTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Data.Damage")), false);
     Row.ProcInstantDamageCurHpPct = 10.0f;
-    Row.StackRule = EDrEffectStackRule::Accumulate;
+    Row.StackRule = EDsEffectStackRule::Accumulate;
     Asset->Rows.Add(Row);
    }
    {
-    FDrEffectDefsRow Row;
+    FDsEffectDefsRow Row;
     Row.Id = 2002;
-    Row.Category = EDrEffectCategory::Debuff;
-    Row.ApplyTo = EDrEffectApplyTo::Victim;
+    Row.Category = EDsEffectCategory::Debuff;
+    Row.ApplyTo = EDsEffectApplyTo::Victim;
     Row.Duration = 4.0f;
     Row.DamagePerTick = 0.0f;
     Row.Period = 0.0f;
@@ -430,14 +428,14 @@ struct FFixture {
     Row.StateTag = FGameplayTag::RequestGameplayTag(FName(TEXT("State.Debuff.Chill")), false);
     Row.TriggerTag = FGameplayTag();
     Row.ProcInstantDamageCurHpPct = 0.0f;
-    Row.StackRule = EDrEffectStackRule::Accumulate;
+    Row.StackRule = EDsEffectStackRule::Accumulate;
     Asset->Rows.Add(Row);
    }
    {
-    FDrEffectDefsRow Row;
+    FDsEffectDefsRow Row;
     Row.Id = 2003;
-    Row.Category = EDrEffectCategory::Buff;
-    Row.ApplyTo = EDrEffectApplyTo::Caster;
+    Row.Category = EDsEffectCategory::Buff;
+    Row.ApplyTo = EDsEffectApplyTo::Caster;
     Row.Duration = 8.0f;
     Row.DamagePerTick = 0.0f;
     Row.Period = 0.0f;
@@ -452,11 +450,11 @@ struct FFixture {
     Row.StateTag = FGameplayTag::RequestGameplayTag(FName(TEXT("State.Buff.Shield")), false);
     Row.TriggerTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Data.PoiseDamage")), false);
     Row.ProcInstantDamageCurHpPct = 0.0f;
-    Row.StackRule = EDrEffectStackRule::Refresh;
+    Row.StackRule = EDsEffectStackRule::Refresh;
     Asset->Rows.Add(Row);
    }
    Asset->PrimaryKeys = {2001, 2002, 2003};
-   Asset->Category_Keys = {EDrEffectCategory::Buff, EDrEffectCategory::Debuff};
+   Asset->Category_Keys = {EDsEffectCategory::Buff, EDsEffectCategory::Debuff};
    Asset->Category_Offsets = {0, 1, 3};
    Asset->Category_Indices = {2, 0, 1};
    Asset->StackBonus_Pool = {0, 5, 10, 0, 3, 6, 0, 10, 20};

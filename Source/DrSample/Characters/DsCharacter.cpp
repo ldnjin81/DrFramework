@@ -35,15 +35,16 @@
 DEFINE_LOG_CATEGORY_STATIC(LogDsCharacter, Log, All);
 
 ADsCharacter::ADsCharacter(const FObjectInitializer& ObjectInitializer)
- : Super(ObjectInitializer.SetDefaultSubobjectClass<UDsAbilitySystemComponent>(TEXT("AbilitySystem"))) {
+ : Super(ObjectInitializer) {
+  AbilitySystem = CreateDefaultSubobject<UDsAbilitySystemComponent>(TEXT("AbilitySystem"));
   CombatFX = CreateDefaultSubobject<UDsCombatFXComponent>(TEXT("CombatFX"));
   // 경직 시간과 표시 메시 복구를 틱에서 센다.
   PrimaryActorTick.bCanEverTick = true;
   LockOn = CreateDefaultSubobject<UDsLockOnComponent>(TEXT("LockOn"));
 
   Attributes = CreateDefaultSubobject<UDsAttributeSet>(TEXT("Attributes"));
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetIsReplicated(true);
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+  AbilitySystem->SetIsReplicated(true);
+  AbilitySystem->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
   GetCapsuleComponent()->InitCapsuleSize(30.f, 86.f);
   // 이동 속도 기본값. 생성 뒤 RefreshMaxSpeed가 플레이어 전투 데이터로 맞춘다.
@@ -183,10 +184,10 @@ void ADsCharacter::InitializeAbilities() {
     RefreshMaxSpeed();
   }
   if (AbilitySystem) {
-    if (!CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->GetSet<UDsAttributeSet>()) {
-      CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->AddAttributeSetSubobject(Attributes.Get());
+    if (!AbilitySystem->GetSet<UDsAttributeSet>()) {
+      AbilitySystem->AddAttributeSetSubobject(Attributes.Get());
     }
-    CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->InitAbilityActorInfo(this, this);
+    AbilitySystem->InitAbilityActorInfo(this, this);
   }
 }
 float ADsCharacter::GetWalkSpeed() const { return UDsPlayerCombatData::Get()->WalkSpeed; }
@@ -220,7 +221,7 @@ void ADsCharacter::GrantDefaultAbilities() {
   bAbilitiesGranted = true;
   for (const TSubclassOf<UDsGameplayAbility> &AbilityClass : DefaultAbilities)
     if (AbilityClass)
-      CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
+      AbilitySystem->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
 }
 
 void ADsCharacter::BindCombatEvents() {
@@ -247,7 +248,7 @@ void ADsCharacter::Tick(float DeltaSeconds) {
   if (StaggerRemaining > 0.f) {
     StaggerRemaining -= DeltaSeconds;
     if (StaggerRemaining <= 0.f && AbilitySystem)
-      CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetLooseState(DsTags::State_Staggered, false);
+      AbilitySystem->SetLooseState(DsTags::State_Staggered, false);
   }
   FollowCombatMotion(DeltaSeconds);
   if (bPoseOverridden && PoseOverrideRemaining >= 0.f) {
@@ -261,30 +262,30 @@ bool ADsCharacter::InputAttackLight() {
   if (!AbilitySystem)
     return false;
   // 약공격이 진행 중이면 새로 발동하지 않고 다음 타를 예약한다.
-  for (const FGameplayAbilitySpec &Spec : CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->GetActivatableAbilities())
+  for (const FGameplayAbilitySpec &Spec : AbilitySystem->GetActivatableAbilities())
     if (Spec.IsActive())
       if (UDsGameplayAbility_AttackLight *Attack =
               Cast<UDsGameplayAbility_AttackLight>(Spec.GetPrimaryInstance())) {
         Attack->BufferNextInput();
         return true;
       }
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->TryActivateAbilityByTag(DsTags::Ability_Attack_Light);
-  return CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Attacking);
+  AbilitySystem->TryActivateAbilityByTag(DsTags::Ability_Attack_Light);
+  return AbilitySystem->HasMatchingGameplayTag(DsTags::State_Attacking);
 }
 
 bool ADsCharacter::InputAttackHeavy() {
   if (!AbilitySystem ||
-      CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Attacking))
+      AbilitySystem->HasMatchingGameplayTag(DsTags::State_Attacking))
     return false;
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->TryActivateAbilityByTag(DsTags::Ability_Attack_Heavy);
-  return CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Attacking);
+  AbilitySystem->TryActivateAbilityByTag(DsTags::Ability_Attack_Heavy);
+  return AbilitySystem->HasMatchingGameplayTag(DsTags::State_Attacking);
 }
 
 bool ADsCharacter::InputGuard() {
   if (!AbilitySystem)
     return false;
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->TryActivateAbilityByTag(DsTags::Ability_Guard);
-  return CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Parrying);
+  AbilitySystem->TryActivateAbilityByTag(DsTags::Ability_Guard);
+  return AbilitySystem->HasMatchingGameplayTag(DsTags::State_Parrying);
 }
 
 bool ADsCharacter::InputLockOn() { return LockOn->Toggle(); }
@@ -292,8 +293,8 @@ bool ADsCharacter::InputLockOn() { return LockOn->Toggle(); }
 bool ADsCharacter::InputDodge() {
   if (!AbilitySystem)
     return false;
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->TryActivateAbilityByTag(DsTags::Ability_Dodge);
-  return CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Dodging);
+  AbilitySystem->TryActivateAbilityByTag(DsTags::Ability_Dodge);
+  return AbilitySystem->HasMatchingGameplayTag(DsTags::State_Dodging);
 }
 
 bool ADsCharacter::IsMoveInputBlocked() const {
@@ -304,7 +305,7 @@ bool ADsCharacter::IsMoveInputBlocked() const {
           DsTags::State_Dead, DsTags::State_Staggered, DsTags::State_Attacking,
           DsTags::State_Guarding, DsTags::State_Parrying,
           DsTags::State_Dodging});
-  return CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasAnyMatchingGameplayTags(Blocking);
+  return AbilitySystem->HasAnyMatchingGameplayTags(Blocking);
 }
 
 bool ADsCharacter::CanJumpInternal_Implementation() const {
@@ -326,10 +327,10 @@ void ADsCharacter::HandleDamaged(float Damage, AActor *DamageInstigator,
 }
 
 void ADsCharacter::HandlePoiseBroken(AActor *, AActor *) {
-  if (!AbilitySystem || CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->HasMatchingGameplayTag(DsTags::State_Dead))
+  if (!AbilitySystem || AbilitySystem->HasMatchingGameplayTag(DsTags::State_Dead))
     return;
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->CancelAllAbilities();
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetLooseState(DsTags::State_Staggered, true);
+  AbilitySystem->CancelAllAbilities();
+  AbilitySystem->SetLooseState(DsTags::State_Staggered, true);
   StaggerRemaining = UDsPlayerCombatData::Get()->StaggerDuration;
   PlayCombatMontage(HitReactFrontMontage);
 }
@@ -338,9 +339,9 @@ void ADsCharacter::HandleOutOfHealth(AActor *, AActor *) {
   LockOn->Clear();
   if (!AbilitySystem)
     return;
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetLooseState(DsTags::State_Dead, true);
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->CancelAllAbilities();
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetLooseState(DsTags::State_Staggered, false);
+  AbilitySystem->SetLooseState(DsTags::State_Dead, true);
+  AbilitySystem->CancelAllAbilities();
+  AbilitySystem->SetLooseState(DsTags::State_Staggered, false);
   StaggerRemaining = 0.f;
   GetCharacterMovement()->DisableMovement();
   PlayCombatMontage(DeathMontage, true);
@@ -350,15 +351,15 @@ void ADsCharacter::Revive(const FTransform &Where) {
   LockOn->Clear();
   CombatFX->Reset();
   GetWorld()->GetSubsystem<UDsHitFeedbackSubsystem>()->ResetActor(this);
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->CancelAllAbilities();
+  AbilitySystem->CancelAllAbilities();
   const TArray<FGameplayTag> ResetTags = {DsTags::State_Dead, DsTags::State_Staggered,
        DsTags::State_Attacking, DsTags::State_Guarding, DsTags::State_Parrying,
        DsTags::State_Dodging, DsTags::State_Invulnerable};
   for (const FGameplayTag &Tag : ResetTags)
-    CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetLooseState(Tag, false);
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetNumericAttributeBase(UDsAttributeSet::GetHealthAttribute(), Attributes->GetMaxHealth());
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetNumericAttributeBase(UDsAttributeSet::GetStaminaAttribute(), Attributes->GetMaxStamina());
-  CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetNumericAttributeBase(UDsAttributeSet::GetPoiseAttribute(), Attributes->GetMaxPoise());
+    AbilitySystem->SetLooseState(Tag, false);
+  AbilitySystem->SetNumericAttributeBase(UDsAttributeSet::GetHealthAttribute(), Attributes->GetMaxHealth());
+  AbilitySystem->SetNumericAttributeBase(UDsAttributeSet::GetStaminaAttribute(), Attributes->GetMaxStamina());
+  AbilitySystem->SetNumericAttributeBase(UDsAttributeSet::GetPoiseAttribute(), Attributes->GetMaxPoise());
   StaggerRemaining = 0.f;
   RestoreAnimBlueprint();
   if (MannyMesh && MannyMesh->GetAnimInstance())
@@ -381,7 +382,7 @@ void ADsCharacter::FellOutOfWorld(const UDamageType &DamageType) {
   }
   // 낙사는 무적·막기에 관계없이 사망시키되 재도전을 위해 액터는 유지한다.
   if (Attributes->GetHealth() > 0.f) {
-    CastChecked<UDsAbilitySystemComponent>(AbilitySystem)->SetNumericAttributeBase(UDsAttributeSet::GetHealthAttribute(), 0.f);
+    AbilitySystem->SetNumericAttributeBase(UDsAttributeSet::GetHealthAttribute(), 0.f);
     Attributes->OnOutOfHealth.Broadcast(this, this);
   }
 }

@@ -54,7 +54,7 @@ float UDsGameplayAbility::GetDsCooldownRemaining() const {
   return AbilitySystem ? AbilitySystem->GetCooldownRemaining(CooldownTag) : 0.f;
 }
 namespace {
-const FName DrConstantMoveName(TEXT("DrConstantMove"));
+const FName DsConstantMoveName(TEXT("DsConstantMove"));
 }
 void UDsGameplayAbility::ApplyConstantMove(const FVector &Direction,
                                            float Distance, float Duration,
@@ -68,7 +68,7 @@ void UDsGameplayAbility::ApplyConstantMove(const FVector &Direction,
   ClearConstantMove();
   TSharedPtr<FRootMotionSource_ConstantForce> Move =
       MakeShared<FRootMotionSource_ConstantForce>();
-  Move->InstanceName = DrConstantMoveName;
+  Move->InstanceName = DsConstantMoveName;
   Move->AccumulateMode = ERootMotionAccumulateMode::Override;
   Move->Priority = 5;
   Move->Force = Dir * (Distance / Duration);
@@ -81,7 +81,7 @@ void UDsGameplayAbility::ApplyConstantMove(const FVector &Direction,
 void UDsGameplayAbility::ClearConstantMove() {
   if (ACharacter *Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
     if (UCharacterMovementComponent *Movement = Character->GetCharacterMovement())
-      Movement->RemoveRootMotionSource(DrConstantMoveName);
+      Movement->RemoveRootMotionSource(DsConstantMoveName);
 }
 UAnimMontage *UDsGameplayAbility::PlayAbilityMontage(
     const TSoftObjectPtr<UAnimMontage> &Montage, float PlayRate) {

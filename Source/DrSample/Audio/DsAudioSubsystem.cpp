@@ -1,5 +1,5 @@
 #include "Audio/DsAudioSubsystem.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "AudioMixerBlueprintLibrary.h"
 #include "AudioModulationStatics.h"
@@ -26,7 +26,7 @@ bool UDsAudioSubsystem::DoesSupportWorldType(EWorldType::Type Type) const {
   return Type == EWorldType::Game || Type == EWorldType::PIE;
 }
 const UDsAudioData* UDsAudioSubsystem::GetData() {
-  if (!Data) Data = LoadObject<UDsAudioData>(nullptr, *DrGameAssets::Path(TEXT("DA_Audio")).ToString());
+  if (!Data) Data = LoadObject<UDsAudioData>(nullptr, *DsGameAssets::Path(TEXT("DA_Audio")).ToString());
   return Data;
 }
 TStatId UDsAudioSubsystem::GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(UDsAudioSubsystem, STATGROUP_Tickables); }

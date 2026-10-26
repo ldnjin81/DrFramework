@@ -1,5 +1,5 @@
 #include "Boss/DsBossCharacter.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 #include "Combat/DsCombatFXComponent.h"
 
 #include "Boss/DsBossBrainComponent.h"
@@ -41,7 +41,7 @@ ADsBossCharacter::ADsBossCharacter() {
 UAbilitySystemComponent* ADsBossCharacter::GetAbilitySystemComponent() const { return AbilitySystem; }
 const UDsBossData* ADsBossCharacter::GetData() const {
   if (!LoadedData) {
-    LoadedData = BossData.IsNull() ? DrGameAssets::Load<UDsBossData>(BossAssetKey) : BossData.LoadSynchronous();
+    LoadedData = BossData.IsNull() ? DsGameAssets::Load<UDsBossData>(BossAssetKey) : BossData.LoadSynchronous();
     if (!LoadedData) {
       UE_LOG(LogDsBoss, Warning, TEXT("보스 데이터 에셋이 없어 기본값을 사용합니다."));
       LoadedData = GetDefault<UDsBossData>();
@@ -97,7 +97,7 @@ void ADsBossCharacter::PlaySequence(FName InName, bool bLoop) {
   UAnimSequence* Sequence = Animations.FindRef(InName);
   if (!Sequence && !MissingAnimations.Contains(InName)) {
     const FString Name = InName.ToString();
-    const FString Path = DrGameAssets::Path(FName(TEXT("BossAnim_") + Name)).ToString();
+    const FString Path = DsGameAssets::Path(FName(TEXT("BossAnim_") + Name)).ToString();
     Sequence = LoadObject<UAnimSequence>(nullptr, *Path);
     if (Sequence) Animations.Add(InName, Sequence);
     else {

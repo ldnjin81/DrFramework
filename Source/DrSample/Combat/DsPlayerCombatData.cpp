@@ -1,5 +1,5 @@
 #include "Combat/DsPlayerCombatData.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "Animation/AnimMontage.h"
 
@@ -33,7 +33,7 @@ UDsPlayerCombatData::UDsPlayerCombatData() {
 const UDsPlayerCombatData* UDsPlayerCombatData::Get() {
   static TWeakObjectPtr<UDsPlayerCombatData> Cached;
   if (Cached.IsValid()) return Cached.Get();
-  auto* Data = DrGameAssets::Load<UDsPlayerCombatData>(TEXT("PlayerCombat"));
+  auto* Data = DsGameAssets::Load<UDsPlayerCombatData>(TEXT("PlayerCombat"));
   if (!Data) {
     UE_LOG(LogTemp, Warning, TEXT("플레이어 전투 데이터가 없어 기본값을 사용합니다."));
     Data = NewObject<UDsPlayerCombatData>();
@@ -41,13 +41,13 @@ const UDsPlayerCombatData* UDsPlayerCombatData::Get() {
   // 클래스 생성 중에는 테이블을 조회하지 않는다. 기본값과 같은 값이라 저장에서 생략된 참조는 첫 사용 시 채운다.
   const TCHAR* LightKeys[] = {TEXT("AM_Attack_PrimaryA"), TEXT("AM_Attack_PrimaryB"), TEXT("AM_Attack_PrimaryC")};
   for (int32 Index = 0; Index < FMath::Min(Data->LightStages.Num(), 3); ++Index)
-    if (Data->LightStages[Index].Montage.IsNull()) Data->LightStages[Index].Montage = TSoftObjectPtr<UAnimMontage>(DrGameAssets::Path(LightKeys[Index]));
+    if (Data->LightStages[Index].Montage.IsNull()) Data->LightStages[Index].Montage = TSoftObjectPtr<UAnimMontage>(DsGameAssets::Path(LightKeys[Index]));
   if (!Data->HeavyStages.IsEmpty() && Data->HeavyStages[0].Montage.IsNull())
-    Data->HeavyStages[0].Montage = TSoftObjectPtr<UAnimMontage>(DrGameAssets::Path(TEXT("AM_Attack_RMB")));
+    Data->HeavyStages[0].Montage = TSoftObjectPtr<UAnimMontage>(DsGameAssets::Path(TEXT("AM_Attack_RMB")));
   const TCHAR* Suffixes[] = {TEXT("F"), TEXT("FR"), TEXT("R"), TEXT("BR"), TEXT("B"), TEXT("BL"), TEXT("L"), TEXT("FL")};
   for (int32 Index = 0; Index < FMath::Min(Data->Dodge.RollMontages.Num(), 8); ++Index)
-    if (Data->Dodge.RollMontages[Index].IsNull()) Data->Dodge.RollMontages[Index] = TSoftObjectPtr<UAnimMontage>(DrGameAssets::Path(FName(FString(TEXT("AM_Roll_")) + Suffixes[Index])));
-  if (Data->Guard.Montage.IsNull()) Data->Guard.Montage = TSoftObjectPtr<UAnimMontage>(DrGameAssets::Path(TEXT("AM_Deflect_InPlace")));
+    if (Data->Dodge.RollMontages[Index].IsNull()) Data->Dodge.RollMontages[Index] = TSoftObjectPtr<UAnimMontage>(DsGameAssets::Path(FName(FString(TEXT("AM_Roll_")) + Suffixes[Index])));
+  if (Data->Guard.Montage.IsNull()) Data->Guard.Montage = TSoftObjectPtr<UAnimMontage>(DsGameAssets::Path(TEXT("AM_Deflect_InPlace")));
   Cached = Data;
   return Data;
 }

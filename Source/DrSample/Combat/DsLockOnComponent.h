@@ -6,7 +6,7 @@
 
 class UDsLockOnTargetComponent;
 class UDsCombatFeelData;
-DECLARE_MULTICAST_DELEGATE_OneParam(FDrLockOnChangedDelegate, AActor*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FDsLockOnChangedDelegate, AActor*);
 
 /** 획득·전환·해제와 카메라/스트레이프 상태 복구를 담당한다. */
 UCLASS(ClassGroup=(Dr), meta=(BlueprintSpawnableComponent))
@@ -22,7 +22,7 @@ public:
   FVector GetTargetLocation() const;
   virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
   virtual void EndPlay(const EEndPlayReason::Type Reason) override;
-  FDrLockOnChangedDelegate OnTargetChanged;
+  FDsLockOnChangedDelegate OnTargetChanged;
   UPROPERTY(EditAnywhere) TObjectPtr<UDsCombatFeelData> Settings;
 private:
   const UDsCombatFeelData* Data() const;

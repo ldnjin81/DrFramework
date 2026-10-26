@@ -1,5 +1,5 @@
 #include "Game/DsGameMode.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "Characters/DsCharacter.h"
 #include "Game/DsPlayerController.h"
@@ -13,7 +13,7 @@ ADsGameMode::ADsGameMode() {
 void ADsGameMode::InitGame(const FString &MapName, const FString &Options,
                            FString &ErrorMessage) {
   Super::InitGame(MapName, Options, ErrorMessage);
-  const FSoftObjectPath Path = DrGameAssets::Path(TEXT("Player"));
+  const FSoftObjectPath Path = DsGameAssets::Path(TEXT("Player"));
   if (UClass* CharacterClass = FSoftClassPath(Path.ToString()).TryLoadClass<ADsCharacter>()) {
     DefaultPawnClass = CharacterClass;
   } else {

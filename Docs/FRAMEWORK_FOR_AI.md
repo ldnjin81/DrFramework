@@ -4,9 +4,9 @@
 
 ## 모듈 구조와 의존성
 
-`DrFramework → DrTableRuntime`, 소비 게임 모듈 → DrFramework 방향만 허용한다. 플러그인 클래스·구조체·열거형은 Dr 접두사, 공개 심볼은 DRFRAMEWORK_API를 쓴다. 모듈 루트를 PublicIncludePaths에 등록하고 다른 하위 폴더를 포함할 때 루트 상대 경로를 쓴다.
+소비 게임 모듈 → DrFramework 방향만 허용하며, DrFramework는 다른 프로젝트 플러그인에 의존하지 않는다. 플러그인 클래스·구조체·열거형은 Dr 접두사, 공개 심볼은 DRFRAMEWORK_API를 쓴다. 모듈 루트를 PublicIncludePaths에 등록하고 다른 하위 폴더를 포함할 때 루트 상대 경로를 쓴다.
 
-필수 엔진 모듈은 Core·CoreUObject·Engine·DeveloperSettings·GameplayAbilities·GameplayTags·GameplayTasks·EnhancedInput·InputCore·UMG·CommonUI·CommonInput·Json·Slate·SlateCore다. 실제 빌드 선언은 DrFramework.Build.cs가 기준이다. 엔진 상속 타입의 헤더와 각 cpp 자신의 헤더를 명시적으로 포함한다.
+필수 엔진 모듈은 Core·CoreUObject·Engine·DeveloperSettings·EnhancedInput·InputCore·UMG·CommonUI·CommonInput·Json·Slate·SlateCore다. 엔진 플러그인은 EnhancedInput·CommonUI만 요구한다. GAS(GameplayAbilities)·게임플레이 태그는 쓰지 않는다. 실제 빌드 선언은 DrFramework.Build.cs가 기준이다. 엔진 상속 타입의 헤더와 각 cpp 자신의 헤더를 명시적으로 포함한다.
 
 | 폴더 | 책임 |
 | --- | --- |
@@ -14,12 +14,8 @@
 | Network | 끝점 연결 상태, 요청 Id·콜백·타임아웃·지연 큐 |
 | Backend | 게임이 등록하는 ID별 처리기를 실행하는 가짜 서버 |
 | Content | 콘텐츠 객체 등록·수명·서버 메시지 라우팅 |
-| TableData | GameAssets 경로 조회와 공통 테이블 등록 |
-| Abilities | 틱 기반 어빌리티·ASC·상태 효과 |
-| Characters | IAbilitySystemInterface를 제공하는 캐릭터 골격 |
 | UI | 화면 층·메뉴 동작·HUD 기반·프로젝트 설정 페이지 |
 | Debug | 단계 등록형 스모크, 성능 표본 통계 |
-| Tables | GameAssets·EffectDefs 스키마와 효과 공통 열거형 |
 
 ## 수명과 부팅
 
@@ -35,31 +31,9 @@
 
 `UDrContentSettings.ContentClasses`(Config=Game)의 soft class 목록을 UDrContentSubsystem이 로드해 UDrContentBase 객체를 생성·Initialize한다. 게임은 RegisterContent로 추가 등록하거나 FindContent<T>로 조회한다. 서버 push는 RequestId=0 패킷이며 GetHandledMessageTypes에 Type이 포함된 콘텐츠만 HandleServerPacket을 받는다. 특정 사용자 데이터 콘텐츠는 기본 등록하지 않는다.
 
-## 테이블 등록과 생성 계약
+## 데이터 테이블: DrTableSystem 권장
 
-공통 스키마는 `Plugins/DrFramework/Tables/Schemas`, 열거형은 옆 Enums에 둔다. 생성 결과는 `Plugins/DrFramework/Source/DrFramework/TableData/Generated`다. 생성 파일을 손으로 수정하지 않는다. `Tools/gen_tables.ps1`이 기반(`--prefix Dr`)과 게임(`--prefix Ds` 등) 두 번 생성한다. drtable은 모듈 API 매크로를 붙이지 않으므로, 스크립트가 생성 직후 행 구조체 선언을 `struct DRFRAMEWORK_API FDr…Row`(게임은 자기 모듈 매크로)로 바꾼다. 이 후처리가 없으면 다른 모듈이 `FDr…Row::Find/GetAll`을 호출할 때 LNK2019가 난다. GameAssets는 Name 기본키와 Path를 가진 에셋 경로 표다. 조회 도우미 DrGameAssets::Path는 입력 키만 해석하고 특정 게임 클래스·맵을 고르지 않는다.
-
-EffectDefs는 Id·Category·ApplyTo·Duration·DamagePerTick·Period·Magnitude·MoveSpeedMultiplier·DamageTakenMultiplier·DamageDealtMultiplier·StackBonus·DisplayName·Icon·StateTag·TriggerTag·ProcInstantDamageCurHpPct·StackRule을 소유한다. 장르 속성은 게임의 별도 테이블/속성 세트로 확장한다. 런타임 효과 DefinitionId는 원본 행의 Id이며 게임 훅이 확장 데이터를 찾는 데 쓸 수 있다.
-
-`TableData/DrTables.cpp` 한 곳에서 `DRTABLE_AUTO_REGISTER(DrGeneratedTables::RegisterAll<UDrTableSubsystem>)`로 등록한다. 게임은 자기 prefix로 생성한 별도 등록 함수를 자기 모듈 한 곳에서 등록한다. 등록과 DataAsset 굽기를 구분하며 스키마 해시가 바뀌면 다시 굽는다. 다른 모듈 테이블의 Id 연결은 게임이 유효성을 검증한다.
-
-## ASC·어빌리티·캐릭터 확장
-
-UDrAbilitySystemComponent는 매 틱 활성 UDrGameplayAbility::AbilityTick, 한시 효과·주기 피해, 쿨다운을 진행한다. 효과는 태그별 한시/영구 맵에 저장하며 같은 태그에는 한시 효과가 우선한다. 이동·받는 피해·주는 피해 배수는 각 효과의 곱이다. Refresh는 남은 시간을 갱신하고 Accumulate는 StackBonus 길이까지 단계를 올린다. 확대 비율은 `1+StackBonus[단계-1]/100`이며 배수는 1에서의 차이를 확대한다. 재적용은 주기 위상을 초기화하지 않는다. 만료 시각과 같은 주기 피해는 포함한다. 유효하지 않은 태그 또는 0 이하 지속시간은 적용하지 않는다.
-
-| 확장점 | 기본 동작 | 게임 책임 |
-| --- | --- | --- |
-| ApplyDirectDamage | 아무 동작 없음 | 주기·즉시 피해를 게임 속성에 적용 |
-| GetCurrentHealth | 0 | 현재 값 제공 |
-| OnEffectApplied | 아무 동작 없음 | 게임별 추가 효과 처리 |
-| IsShieldEffect | false | 흡수 풀로 쓸 효과 선택 |
-| ApplyEffectById | 공통 EffectDefs 조회·대상 선택 | 필요할 때 재정의 |
-| UDrGameplayAbility::AbilityTick | 아무 동작 없음 | 시간 구간 진행 |
-| ADrCharacter::InitializeAbilitySystem | ASC ActorInfo 초기화 | 속성·어빌리티 초기화 추가 |
-
-흡수 풀은 선택된 효과의 Magnitude로 초기화하고 소진되면 해당 효과를 해제한다. UDrGameplayAbility는 InstancedPerActor·LocalPredicted이고 CooldownTag가 있으면 발동을 막는다. CommitCooldown은 ASC의 틱 기반 쿨다운을 시작한다. 게임 자원 비용과 동작 상태 태그는 게임 파생 어빌리티가 구현한다.
-
-ADrCharacter는 기본 ASC 하위 객체 AbilitySystem을 생성·복제 설정하고 IAbilitySystemInterface를 구현한다. 파생 생성자는 FObjectInitializer.SetDefaultSubobjectClass로 게임 ASC를 지정할 수 있다. 기반에는 속성 세트·입력·카메라·표시 메시 설정이 없다.
+DrFramework 코드는 테이블 시스템에 의존하지 않는다. 정적 데이터는 함께 쓰도록 권장하는 별도 플러그인 [DrTableSystem](https://github.com/ldnjin81/DrTableSystem)(스키마 → C++ 생성 → DataAsset 굽기 → `UDrTableSubsystem` 조회)으로 게임이 소유한다. 샘플은 DrTableSystem을 git 서브모듈(`Plugins/DrTableSystem`, 태그 고정)로 넣고 GameAssets(에셋 경로 표)·EffectDefs 등 모든 테이블을 자기 모듈에서 생성·등록한다. 게임은 자기 prefix로 생성하고, 자기 모듈 한 곳에서 `DRTABLE_AUTO_REGISTER`로 등록한다. drtable은 모듈 API 매크로를 붙이지 않으므로 다른 모듈이 행 정적 함수를 호출해야 하면 생성 직후 행 구조체에 모듈 API 매크로를 붙인다(샘플 `Tools/gen_tables.ps1` 참고).
 
 ## UI: 코드 기반과 설정
 
@@ -95,13 +69,13 @@ UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 �
 
 ## 빈 프로젝트에서 재현
 
-1. UE 5.8 프로젝트에 DrFramework·DrTableSystem을 넣고 활성화한다. CommonUI·EnhancedInput·GameplayAbilities도 활성화한다.
+1. UE 5.8 프로젝트에 DrFramework를 넣고 활성화한다(CommonUI·EnhancedInput이 함께 켜진다). 정적 데이터가 필요하면 DrTableSystem도 함께 넣는다(권장). 전투·능력치가 필요하면 GAS는 게임이 직접 켠다(샘플 참고).
 2. 소비 게임 모듈에 DrFramework를 의존성으로 추가한다. Target은 namespace 없이 BuildSettingsVersion.V7·EngineIncludeOrderVersion.Latest를 쓴다.
 3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. CommonGameViewportClient를 지정한다.
-4. UI 클래스·입력·맵 설정은 필요한 값만 채운다. 데이터 테이블은 스키마 생성→모듈 등록→빌드→게임 데이터 굽기 순서다.
-5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 모듈이 없는 임시 프로젝트(.uproject에 DrFramework·DrTableSystem 플러그인만 활성화)에 두 플러그인 폴더만 복사해 `Build.bat UnrealEditor Win64 Development -Project=<임시>.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·굽기 에셋·게임 태그 없이 통과해야 한다(테이블은 메모리 픽스처 `Tests/DrTableTestFixture.h`, 태그는 테스트 cpp의 네이티브 태그).
+4. UI 클래스·입력·맵 설정은 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.
+5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 모듈이 없는 임시 프로젝트(.uproject에 DrFramework 플러그인만 활성화)에 플러그인 폴더만 복사해 `Build.bat UnrealEditor Win64 Development -Project=<임시>.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·다른 플러그인 없이 통과해야 한다.
 6. 에디터가 닫힌 환경에서 Automation List 후 DrFramework와 게임 테스트를 실행한다. 외부 엔진 버전에서는 엔진 API 차이를 조정한다.
 
 ## 검증 명령과 문서 규약
 
-`Build.bat DrSampleEditor Win64 Development -project=<프로젝트> -WaitMutex -UBARootDir=<쓰기 가능한 임시 폴더>`로 소비 호스트를 빌드한다. 자동화는 `-ExecCmds="Automation List; Automation RunTests DrFramework+DrSample" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`다. 기반 테스트는 DrFramework.*(네트워크 3, 테이블 2, 효과 기반 5), 게임 테스트는 게임 모듈 이름을 쓴다. 체력·보호막·주기 피해처럼 속성 세트가 필요한 효과 동작은 기반이 아니라 파생 ASC를 가진 게임이 검증한다. 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 별도 게임 설계서에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
+`Build.bat DrSampleEditor Win64 Development -project=<프로젝트> -WaitMutex -UBARootDir=<쓰기 가능한 임시 폴더>`로 소비 호스트를 빌드한다. 자동화는 `-ExecCmds="Automation List; Automation RunTests DrFramework+DrSample" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`다. 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2), 게임 테스트는 게임 모듈 이름을 쓴다. 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 별도 게임 설계서에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.

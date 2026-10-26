@@ -5,7 +5,9 @@
 #include "DsGeneratedTables.h"
 #include "DsBossAttackTable.h"
 #include "DsBossPhaseTable.h"
+#include "DsEffectDefsTable.h"
 #include "DsEffectExtensionsTable.h"
+#include "DsGameAssetsTable.h"
 
 namespace DsGeneratedTables
 {
@@ -20,7 +22,13 @@ namespace DsGeneratedTables
             .WithSubKey(TEXT("PatternSet"), &UDsBossAttackTable::PatternSet_Keys, &UDsBossAttackTable::PatternSet_Offsets, &UDsBossAttackTable::PatternSet_Indices);
         Tables.template Register<FDsBossPhaseRow, UDsBossPhaseTable>(TEXT("DA_BossPhase"), &UDsBossPhaseTable::Rows, &UDsBossPhaseTable::PrimaryKeys)
             .WithSchemaHash(BossPhaseSchemaHash);
+        Tables.template Register<FDsEffectDefsRow, UDsEffectDefsTable>(TEXT("DA_EffectDefs"), &UDsEffectDefsTable::Rows, &UDsEffectDefsTable::PrimaryKeys)
+            .WithSchemaHash(EffectDefsSchemaHash)
+            .WithSubKey(TEXT("Category"), &UDsEffectDefsTable::Category_Keys, &UDsEffectDefsTable::Category_Offsets, &UDsEffectDefsTable::Category_Indices)
+            .WithArray(TEXT("StackBonus"), &UDsEffectDefsTable::StackBonus_Pool);
         Tables.template Register<FDsEffectExtensionsRow, UDsEffectExtensionsTable>(TEXT("DA_EffectExtensions"), &UDsEffectExtensionsTable::Rows, &UDsEffectExtensionsTable::PrimaryKeys)
             .WithSchemaHash(EffectExtensionsSchemaHash);
+        Tables.template Register<FDsGameAssetsRow, UDsGameAssetsTable>(TEXT("DA_GameAssets"), &UDsGameAssetsTable::Rows, &UDsGameAssetsTable::PrimaryKeys)
+            .WithSchemaHash(GameAssetsSchemaHash);
     }
 }

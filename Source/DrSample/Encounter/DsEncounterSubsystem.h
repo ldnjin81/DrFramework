@@ -10,9 +10,9 @@ class ADsBossCharacter;
 UENUM(BlueprintType)
 enum class EDsEncounterState : uint8 { Idle, Fighting, PlayerDead, Victory };
 
-DECLARE_MULTICAST_DELEGATE_TwoParams(FDrEncounterStateChangedDelegate, EDsEncounterState, EDsEncounterState);
-DECLARE_MULTICAST_DELEGATE(FDrEncounterActorsChangedDelegate);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FDrEncounterDoorMovingDelegate, AActor* /*Door*/, bool /*bMoving*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FDsEncounterStateChangedDelegate, EDsEncounterState, EDsEncounterState);
+DECLARE_MULTICAST_DELEGATE(FDsEncounterActorsChangedDelegate);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FDsEncounterDoorMovingDelegate, AActor* /*Door*/, bool /*bMoving*/);
 
 /** 월드 안에서만 체크포인트·문·사망·승리를 관리한다. */
 UCLASS()
@@ -32,10 +32,10 @@ public:
   FTransform GetRespawnTransform() const;
   void RestartCheckpoint();
   bool IsBoundPlayer(const ADsCharacter *InPlayer) const;
-  FDrEncounterStateChangedDelegate OnStateChanged;
-  FDrEncounterActorsChangedDelegate OnActorsChanged;
+  FDsEncounterStateChangedDelegate OnStateChanged;
+  FDsEncounterActorsChangedDelegate OnActorsChanged;
   /** 아레나 문이 움직이기 시작하거나 멈출 때 알린다. */
-  FDrEncounterDoorMovingDelegate OnDoorMoving;
+  FDsEncounterDoorMovingDelegate OnDoorMoving;
   ADsBossCharacter *GetBoss() const;
   ADsCharacter *GetPlayer() const { return Player.Get(); }
 

@@ -1,16 +1,16 @@
-// 모든 DrFramework 게임플레이 어빌리티의 공통 기반을 선언한다.
+// 샘플 게임플레이 어빌리티의 공통 기반을 선언한다.
 #pragma once
-#include "Abilities/DrGameplayAbility.h"
 #include "CoreMinimal.h"
+#include "Abilities/GameplayAbility.h"
 #include "DsGameplayAbility.generated.h"
 class UAnimMontage;
 class UDsAbilitySystemComponent;
 /**
- * 모든 DrFramework 어빌리티의 기반 클래스이다.
+ * 샘플 어빌리티의 기반 클래스이다. ASC 틱으로 AbilityTick을 받는다.
  * 스태미나 비용과 재사용 대기시간, 소유 액터 접근자를 제공한다.
  */
 UCLASS(Abstract)
-class DRSAMPLE_API UDsGameplayAbility : public UDrGameplayAbility {
+class DRSAMPLE_API UDsGameplayAbility : public UGameplayAbility {
   GENERATED_BODY()
 
 public:
@@ -19,6 +19,11 @@ public:
   /** 어빌리티가 커밋될 때 소모되는 스태미나. 0이면 무료다. */
   UPROPERTY(EditDefaultsOnly, Category = "Ds|Ability")
   float StaminaCost = 0;
+  /** 커밋 시 시작하는 재사용 대기시간(초)과 그동안 붙는 태그. 태그가 있으면 발동을 막는다. */
+  UPROPERTY(EditDefaultsOnly, Category = "Ds|Cooldown")
+  float CooldownDuration = 0;
+  UPROPERTY(EditDefaultsOnly, Category = "Ds|Cooldown")
+  FGameplayTag CooldownTag;
 
 
 

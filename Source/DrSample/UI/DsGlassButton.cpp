@@ -1,5 +1,5 @@
 #include "UI/DsGlassButton.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "UI/DsGlassButtonStyle.h"
 
@@ -38,7 +38,7 @@ void UDsGlassButton::NativeOnInitialized() {
   Blur->SetCornerRadius(FVector4(32));
   Fill(Blur);
   auto* Image = WidgetTree->ConstructWidget<UImage>();
-  if (auto* Material = LoadObject<UMaterialInterface>(nullptr, *DrGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
+  if (auto* Material = LoadObject<UMaterialInterface>(nullptr, *DsGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
     Glass = UMaterialInstanceDynamic::Create(Material, this);
     Glass->SetVectorParameterValue(TEXT("PanelSize"), FLinearColor(400, 64, 0));
     Glass->SetScalarParameterValue(TEXT("CornerRadius"), 32.f);
@@ -72,7 +72,7 @@ void UDsGlassButton::NativeOnRemovedFromFocusPath(const FFocusEvent& Event) {
   Super::NativeOnRemovedFromFocusPath(Event); bFocused = false; RefreshGlass();
 }
 void UDsGlassButton::NativeOnClicked() {
-  if (auto* Sound = LoadObject<USoundBase>(nullptr, *DrGameAssets::Path(TEXT("S_UI_Click")).ToString()))
+  if (auto* Sound = LoadObject<USoundBase>(nullptr, *DsGameAssets::Path(TEXT("S_UI_Click")).ToString()))
     UGameplayStatics::PlaySound2D(this, Sound);
   Super::NativeOnClicked();
 }

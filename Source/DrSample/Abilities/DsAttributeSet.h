@@ -11,12 +11,12 @@
   GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName)                                 \
   GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
 // 소유 액터가 바인딩하는 네이티브(비동적) 델리게이트.
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FDrDamageDelegate, float /*Damage*/,
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FDsDamageDelegate, float /*Damage*/,
                                        AActor * /*Instigator*/,
                                        AActor * /*Causer*/);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FDrOutOfHealthDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FDrPoiseBrokenDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FDrParriedDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FDsOutOfHealthDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FDsPoiseBrokenDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FDsParriedDelegate, AActor * /*Instigator*/, AActor * /*Causer*/);
 
 /** 특성(Trait)에서 전투 스탯을 파생하는 순수 공식 모음. */
 struct FDsStatFormula {
@@ -152,11 +152,11 @@ public:
   FGameplayAttributeData IncomingPoiseDamage;
   DR_ATTRIBUTE_ACCESSORS(UDsAttributeSet, IncomingPoiseDamage)
   // --- 이벤트 (소유 액터가 바인딩; UPROPERTY 아님) --------------------
-  mutable FDrDamageDelegate OnDamaged;
-  mutable FDrOutOfHealthDelegate OnOutOfHealth;
-  mutable FDrPoiseBrokenDelegate OnPoiseBroken;
+  mutable FDsDamageDelegate OnDamaged;
+  mutable FDsOutOfHealthDelegate OnOutOfHealth;
+  mutable FDsPoiseBrokenDelegate OnPoiseBroken;
   /** 쳐내기(패리)로 피해를 완전히 막았을 때 알린다. */
-  mutable FDrParriedDelegate OnParried;
+  mutable FDsParriedDelegate OnParried;
 
 protected:
   /** 공격자가 소유 액터의 전방 반구에 있는지 확인한다. 위치를 모르면 false다. */

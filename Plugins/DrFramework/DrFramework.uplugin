@@ -3,7 +3,7 @@
   "Version": 1,
   "VersionName": "0.1.0",
   "FriendlyName": "DrFramework",
-  "Description": "장르와 무관한 언리얼 게임 런타임 프레임워크 기반(부팅·네트워크·테이블·콘텐츠·UI 흐름·상태 효과·검증 틀)",
+  "Description": "장르와 무관한 언리얼 게임 런타임 프레임워크 기반(부팅·네트워크·가짜 서버·콘텐츠·UI 흐름·검증 틀)",
   "Category": "Gameplay",
   "CreatedBy": "ldnjin81",
   "CanContainContent": false,
@@ -15,14 +15,6 @@
     }
   ],
   "Plugins": [
-    {
-      "Name": "DrTableSystem",
-      "Enabled": true
-    },
-    {
-      "Name": "GameplayAbilities",
-      "Enabled": true
-    },
     {
       "Name": "EnhancedInput",
       "Enabled": true

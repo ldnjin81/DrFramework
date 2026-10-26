@@ -1,5 +1,5 @@
 #include "UI/DsMenuWidget.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 
 #include "UI/DsGlassButton.h"
 #include "Game/DsPlayerController.h"
@@ -22,7 +22,7 @@
 
 FText UDsMenuWidget::MenuText(const TCHAR* Key) {
   // 첫 타이틀 프레임에도 문구가 보이도록 비동기 요청 전에 표를 확실히 로드한다.
-  auto* Table = LoadObject<UStringTable>(nullptr, *DrGameAssets::Path(TEXT("ST_UI")).ToString());
+  auto* Table = LoadObject<UStringTable>(nullptr, *DsGameAssets::Path(TEXT("ST_UI")).ToString());
   return FText::FromStringTable(Table ? Table->GetStringTableId() : NAME_None, Key);
 }
 void UDsMenuWidget::ApplyItemSpacing(UVerticalBoxSlot* LayoutSlot) {
@@ -31,7 +31,7 @@ void UDsMenuWidget::ApplyItemSpacing(UVerticalBoxSlot* LayoutSlot) {
 }
 UDsMenuWidget::UDsMenuWidget() { bIsBackHandler = true; }
 void UDsMenuWidget::NativeOnActivated() {
-  InputMapping = LoadObject<UInputMappingContext>(nullptr, *DrGameAssets::Path(TEXT("IMC_UI")).ToString());
+  InputMapping = LoadObject<UInputMappingContext>(nullptr, *DsGameAssets::Path(TEXT("IMC_UI")).ToString());
   InputMappingPriority = 200;
   Super::NativeOnActivated();
 }
@@ -57,7 +57,7 @@ TSharedRef<SWidget> UDsMenuWidget::RebuildWidget() {
   auto* Blur = WidgetTree->ConstructWidget<UBackgroundBlur>();
   Blur->SetBlurStrength(28.f); Blur->SetCornerRadius(FVector4(36)); Fill(Blur);
   auto* Glass = WidgetTree->ConstructWidget<UImage>();
-  if (auto* Parent = LoadObject<UMaterialInterface>(nullptr, *DrGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
+  if (auto* Parent = LoadObject<UMaterialInterface>(nullptr, *DsGameAssets::Path(TEXT("M_UI_Glass")).ToString())) {
     auto* MID = UMaterialInstanceDynamic::Create(Parent, this);
     MID->SetVectorParameterValue(TEXT("PanelSize"), FLinearColor(464, 500, 0));
     MID->SetScalarParameterValue(TEXT("CornerRadius"), 36.f);

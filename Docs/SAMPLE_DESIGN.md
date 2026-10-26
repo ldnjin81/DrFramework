@@ -9,9 +9,7 @@
 | UDrGameInstance | UDsGameInstance | GetBootSteps·ExecuteBootStep·OnBootFinished: 연결→Ping→로그인→프로필 |
 | ADrGameMode | ADsGameMode | 기본 캐릭터·컨트롤러 지정, GameAssets.Player 로드 |
 | UDrGameUserSettings | UDsGameUserSettings | SFX·Voice·Music 저장·기본값 |
-| ADrCharacter | ADsCharacter | 파생 ASC 하위 객체 지정, 전투 속성·입력·카메라·메시·FX |
-| UDrAbilitySystemComponent | UDsAbilitySystemComponent | TickComponent 자원 재생, ApplyDirectDamage·GetCurrentHealth·IsShieldEffect·OnEffectApplied |
-| UDrGameplayAbility | UDsGameplayAbility | 기력 비용, 전투 상태 차단, 몽타주·전진 이동 |
+| ACharacter(엔진) | ADsCharacter | ASC 하위 객체·IAbilitySystemInterface, 전투 속성·입력·카메라·메시·FX |
 | UDrMenuWidget | UDsMenuWidget → 제목/일시정지/설정 메뉴 | RebuildWidget·BuildMenu: 글래스 레이아웃·버튼·문자열·음량 슬라이더 |
 | UDrHUDWidget | UDsCombatHUDWidget | RebuildWidget·NativeTick: 전투 게이지·표시 모델·잔상 |
 | ADrPlayerController | ADsPlayerController | OnHUDCreated·OnPawnChanged·CanOpenPauseMenu·RequestRestart: 전투 HUD·사망 중 차단·체크포인트 |
@@ -19,12 +17,36 @@
 | UDrSmokeSubsystem | UDsSmokeSubsystem | title·travel·player·boss·tables·assets·hud·pause_open·settings·pause_close 콜백 등록 |
 | UDrPerfSubsystem | UDsPerfSubsystem | 카메라 경로·구간 샘플 수집, 기반 Summarize로 frame/game/gpu 평균·p95·최댓값 계산 |
 
+## 상태 효과·ASC·어빌리티 (샘플 소유)
+
+기반 플러그인에는 GAS 코드가 없다. 아래 체계는 샘플의 `UDsAbilitySystemComponent`·`UDsGameplayAbility`·`ADsCharacter`가 한 클래스씩으로 구현한다(이전의 Dr 기반 + Ds 파생 2단을 합침). 다른 게임은 이 구현을 복사해 시작하거나 자기 방식을 쓴다.
+
+
+UDsAbilitySystemComponent는 매 틱 활성 UDsGameplayAbility::AbilityTick, 한시 효과·주기 피해, 쿨다운을 진행한다. 효과는 태그별 한시/영구 맵에 저장하며 같은 태그에는 한시 효과가 우선한다. 이동·받는 피해·주는 피해 배수는 각 효과의 곱이다. Refresh는 남은 시간을 갱신하고 Accumulate는 StackBonus 길이까지 단계를 올린다. 확대 비율은 `1+StackBonus[단계-1]/100`이며 배수는 1에서의 차이를 확대한다. 재적용은 주기 위상을 초기화하지 않는다. 만료 시각과 같은 주기 피해는 포함한다. 유효하지 않은 태그 또는 0 이하 지속시간은 적용하지 않는다.
+
+| 연결부 | 기본 동작 | 샘플 구현 |
+| --- | --- | --- |
+| ApplyDirectDamage | 아무 동작 없음 | 주기·즉시 피해를 게임 속성에 적용 |
+| GetCurrentHealth | 0 | 현재 값 제공 |
+| OnEffectApplied | 아무 동작 없음 | 게임별 추가 효과 처리 |
+| IsShieldEffect | false | 흡수 풀로 쓸 효과 선택 |
+| ApplyEffectById | 공통 EffectDefs 조회·대상 선택 | 필요할 때 재정의 |
+| UDsGameplayAbility::AbilityTick | 아무 동작 없음 | 시간 구간 진행 |
+| ADsCharacter::InitializeAbilitySystem | ASC ActorInfo 초기화 | 속성·어빌리티 초기화 추가 |
+
+흡수 풀은 선택된 효과의 Magnitude로 초기화하고 소진되면 해당 효과를 해제한다. UDsGameplayAbility는 InstancedPerActor·LocalPredicted이고 CooldownTag가 있으면 발동을 막는다. CommitCooldown은 ASC의 틱 기반 쿨다운을 시작한다. 게임 자원 비용과 동작 상태 태그는 게임 파생 어빌리티가 구현한다.
+
+ADsCharacter는 기본 ASC 하위 객체 AbilitySystem을 생성·복제 설정하고 IAbilitySystemInterface를 구현한다. ASC 하위 객체는 UDsAbilitySystemComponent로 직접 생성한다.
+
+
+테이블: 샘플이 GameAssets·EffectDefs·BossPhase·BossAttack·EffectExtensions를 모두 소유한다(`Source/DrSample/Tables/{Schemas,Enums,Data}`, `--prefix Ds`, 등록은 `TableData/DsTables.cpp` 한 곳). 에셋 경로 조회 도우미는 `DsGameAssets::Path`다.
+
 ## 모듈과 데이터 경계
 
 - `Source/DrSample/Abilities`, `Characters`, `Combat`, `Boss`, `Encounter`, `Audio`, `Core`, `UI`, `Game`, `Debug`가 예시 동작을 소유한다.
-- `Tables/Schemas/BossAttack.schema.xlsx`, `BossPhase.schema.xlsx`, `EffectExtensions.schema.xlsx`와 `Tables/Enums/BossAttackKind.enum.xlsx`는 샘플 소유다. `Tools/gen_tables.ps1`의 두 번째 호출이 `--prefix Ds`로 생성하며 `TableData/DsTables.cpp`가 등록한다.
-- 기반 EffectDefs에는 장르 속성이 없다. `DsEffectExtensions`는 같은 효과 Id에 대한 ProcPoiseDamage를 소유한다. 기반 런타임 효과의 DefinitionId를 통해 OnEffectApplied에서 조회하고, Accumulate 중첩 보너스에 따라 포이즈 피해도 확대한다.
-- BossAttack.Effect는 공통 EffectDefs의 정수 Id다. 생성기는 외부 모듈 Ref를 지원하지 않으므로 샘플이 공통 테이블에서 명시 조회한다. 0은 효과 없음이다.
+- `Tables/Schemas`의 GameAssets·EffectDefs·BossAttack·BossPhase·EffectExtensions 스키마와 `Tables/Enums`(EffectApplyTo·EffectCategory·EffectStackRule·BossAttackKind), `Tables/Data` 원본 데이터는 모두 샘플 소유다. `Tools/gen_tables.ps1`이 `--prefix Ds`로 한 번 생성하고 `TableData/DsTables.cpp`가 등록한다. DrTableSystem은 git 서브모듈 `Plugins/DrTableSystem`(v0.10.0)이다.
+- EffectDefs에는 포이즈 같은 전투 전용 칸이 없다. `DsEffectExtensions`는 같은 효과 Id에 대한 ProcPoiseDamage를 소유한다. 기반 런타임 효과의 DefinitionId를 통해 OnEffectApplied에서 조회하고, Accumulate 중첩 보너스에 따라 포이즈 피해도 확대한다.
+- BossAttack.Effect는 EffectDefs의 정수 Id다. 0은 효과 없음이다.
 - 네트워크 메시지는 `DsMessages`의 FName 상수(Ping·Login·RequestPlayerProfile·ServerPush_ProfileUpdated)다. 부팅 Connect 단계가 가짜 서버의 로그인·프로필 처리기를 등록한다. 기반 네트워크는 로그인 구조체를 모른다.
 - CommonUI의 클래스·입력·맵은 `Config/DefaultGame.ini`의 UDrUISettings, 콘텐츠 목록은 UDrContentSettings에서 설정한다. 기반 컨트롤러는 샘플 GameAssets 키를 조회하지 않는다.
 - `DsSmokeTest`, `DsPerfCapture`, `DsAutoNetSmoke`는 샘플 실행 옵션이다. 스모크는 타이틀 맵과 콘텐츠 준비가 전제다.
@@ -33,10 +55,10 @@
 
 1. 기반 플러그인 둘을 활성화하고 DrSample 모듈을 추가한다. 모듈 의존성은 DrSample.Build.cs를 기준으로 한다.
 2. 테이블 생성 후 DrSampleEditor를 빌드한다. 게임 인스턴스·사용자 설정·게임 모드는 각각 DsGameInstance·DsGameUserSettings·DsGameMode로 지정한다.
-3. 테이블은 `Tools/gen_tables.ps1`(기반 Dr·샘플 Ds 두 번 생성, 행 구조체 API 내보내기 포함) 뒤 DrSampleEditor를 빌드하고 `-run=DrTableBake`를 framework·sample 출력에 각각 실행해 `/Game/Data`에 굽는다(DA_GameAssets·DA_EffectDefs / DA_BossAttack·DA_BossPhase·DA_EffectExtensions).
+3. 테이블은 `Tools/gen_tables.ps1`(Ds 한 번 생성, 행 구조체 `DRSAMPLE_API` 내보내기 포함) 뒤 DrSampleEditor를 빌드하고 `-run=DrTableBake -Input=%TEMP%/DrFramework-DrTable/sample/client -Out=/Game/Data`로 굽는다. 클래스 이름이 바뀌었으면 `-Force`.
 4. 샘플 에셋은 `Tools/build_sample_content.py`가 만든다. 플레이어 BP 부모는 `ADsCharacter`, 적은 `ADsSampleEnemy`, 애님 BP는 `UDsSampleAnimInstance`, 게임 모드 BP는 `ADsGameMode`, 전투 데이터는 `UDsPlayerCombatData`·`UDsBossData`다. 스크립트는 이미 있는 에셋을 재사용하므로, 부모 클래스를 바꿀 때는 Characters·Combat·Maps 폴더와 ABP·게임 모드 BP를 지우고 다시 실행한다(#65에서 이 방식으로 Dr→Ds 부모를 갱신했다. CoreRedirects는 쓰지 않는다).
 5. Lyra 가져오기 도구는 기존 설치 경로를 보존하며, #64 도구와 SAMPLE_NOTES.md를 따른다. Epic 원본을 저장소에 넣지 않는다.
-6. 자동화는 `Automation List; Automation RunTests DrFramework+DrSample`로 실행한다(70개: 기반 10, 샘플 60). `DrSample.PIE.BasicCombat`은 `L_DrSample`에서 이동→공격 명중→적 추적·반격→사망을 검증하며 맵이 없으면 경고 후 건너뛴다. 이전 테스트 대응표는 Docs/task65-test-map.csv다.
+6. 자동화는 `Automation List; Automation RunTests DrFramework+DrSample`로 실행한다(72개: 기반 5, 샘플 67). `DrSample.PIE.BasicCombat`은 `L_DrSample`에서 이동→공격 명중→적 추적·반격→사망을 검증하며 맵이 없으면 경고 후 건너뛴다. 재구성 전 64개의 새 이름은 Docs/task65-test-map.csv다.
 
 ## 기존 예시 구현의 상세 명세와 수치
 

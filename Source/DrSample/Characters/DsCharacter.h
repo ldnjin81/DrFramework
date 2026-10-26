@@ -2,7 +2,7 @@
 
 #include "AbilitySystemInterface.h"
 #include "CoreMinimal.h"
-#include "Characters/DrCharacter.h"
+#include "GameFramework/Character.h"
 #include "DsCharacter.generated.h"
 
 class UDsCombatFXComponent;
@@ -22,7 +22,7 @@ struct FInputActionValue;
 
 /** GASP 로코모션을 구동하는 프로젝트 기본 캐릭터이다. */
 UCLASS(Blueprintable)
-class DRSAMPLE_API ADsCharacter : public ADrCharacter {
+class DRSAMPLE_API ADsCharacter : public ACharacter, public IAbilitySystemInterface {
   GENERATED_BODY()
 
 public:
@@ -88,6 +88,9 @@ public:
   DECLARE_FUNCTION(execFillAnimationProperties);
 
 protected:
+  /** 복제되는 ASC 하위 객체. 상태 효과·어빌리티 틱·쿨다운을 진행한다. */
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ds|Abilities")
+  TObjectPtr<UDsAbilitySystemComponent> AbilitySystem;
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ds|Combat")
   TObjectPtr<UDsLockOnComponent> LockOn;
   UPROPERTY(EditDefaultsOnly, Category = "Ds|Input")

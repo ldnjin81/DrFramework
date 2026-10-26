@@ -2,16 +2,16 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Abilities/DsAbilitySystemComponent.h"
 #include "Abilities/DsAttributeSet.h"
-#include "Abilities/DrGameplayAbility_ApplyEffect.h"
+#include "Abilities/DsGameplayAbility_ApplyEffect.h"
 #include "Abilities/GameplayAbilityTypes.h"
 #include "GameplayAbilitySpec.h"
 #include "Core/DsGameplayTags.h"
-#include "Abilities/Effects/DrEffectTypes.h"
+#include "Abilities/Effects/DsEffectTypes.h"
 #include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/DsTableTestFixture.h"
 #include "DrTableSubsystem.h"
-#include "TableData/Generated/DrEffectDefsTable.h"
+#include "TableData/Generated/DsEffectDefsTable.h"
 #include "Tests/DsTestFixture.h"
 
 class FDsEffectSystemTestAccess {
@@ -22,7 +22,7 @@ public:
   }
   static float GetTimedDamage(const UDsAbilitySystemComponent *ASC,
                               const FGameplayTag &Tag) {
-    const FDrResolvedEffect *Effect = ASC->TimedEffects.Find(Tag);
+    const FDsResolvedEffect *Effect = ASC->TimedEffects.Find(Tag);
     return Effect ? Effect->DamagePerTick : 0.f;
   }
 };
@@ -52,7 +52,7 @@ bool FDrShieldTest::RunTest(const FString &) {
   // 보호막 흡수량과 소진 시 태그 해제를 함께 검증한다.
   DsTestFixture::FWorldFixture Fixture;
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
-  FDrResolvedEffect Effect;
+  FDsResolvedEffect Effect;
   Effect.StateTag = DsTags::State_Buff_Shield;
   Effect.Duration = 6.f;
   Effect.Magnitude = 120.f;
@@ -72,12 +72,12 @@ bool FDrModifierProductTest::RunTest(const FString &) {
   // 활성 효과의 이동 및 피해 배수가 곱으로 합산되는지 검증한다.
   DsTestFixture::FWorldFixture Fixture;
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
-  FDrResolvedEffect EnrageEffect;
+  FDsResolvedEffect EnrageEffect;
   EnrageEffect.StateTag = DsTags::State_Buff_Enrage;
   EnrageEffect.MoveSpeedMultiplier = .8f;
   EnrageEffect.DamageTakenMultiplier = 1.2f;
   EnrageEffect.DamageDealtMultiplier = 1.25f;
-  FDrResolvedEffect GuardEffect;
+  FDsResolvedEffect GuardEffect;
   GuardEffect.StateTag = DsTags::State_Buff_Guard;
   GuardEffect.MoveSpeedMultiplier = .5f;
   GuardEffect.DamageTakenMultiplier = .5f;
@@ -102,11 +102,11 @@ bool FDrPermanentTimedTest::RunTest(const FString &) {
   // 같은 태그의 한시 효과 만료가 영구 효과를 훼손하지 않는지 검증한다.
   DsTestFixture::FWorldFixture Fixture;
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
-  FDrResolvedEffect Permanent;
+  FDsResolvedEffect Permanent;
   Permanent.StateTag = DsTags::State_Buff_Guard;
   Permanent.DamageTakenMultiplier = .7f;
   Owner.ASC->AddPermanentEffect(Permanent);
-  FDrResolvedEffect Timed = Permanent;
+  FDsResolvedEffect Timed = Permanent;
   Timed.Duration = 1.f;
   Timed.DamageTakenMultiplier = .5f;
   Owner.ASC->ApplyStatusEffect(Timed, Owner.Actor);
@@ -125,7 +125,7 @@ bool FDrDotTest::RunTest(const FString &) {
   DsTestFixture::FWorldFixture Fixture;
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
   const float HealthBefore = Owner.Attributes->GetHealth();
-  FDrResolvedEffect Effect;
+  FDsResolvedEffect Effect;
   Effect.StateTag = DsTags::State_Debuff_Burn;
   Effect.Duration = 2.f;
   Effect.DamagePerTick = 10.f;
@@ -145,12 +145,12 @@ bool FDrEffectStackTest::RunTest(const FString &) {
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
   Owner.ASC->SetNumericAttributeBase(UDsAttributeSet::GetDefenseAttribute(),
                                      0.f);
-  FDrResolvedEffect Burn;
+  FDsResolvedEffect Burn;
   Burn.StateTag = DsTags::State_Debuff_Burn;
   Burn.Duration = 2.f;
   Burn.DamagePerTick = 10.f;
   Burn.Period = 1.f;
-  Burn.StackRule = EDrEffectStackRule::Accumulate;
+  Burn.StackRule = EDsEffectStackRule::Accumulate;
   Burn.StackBonus = {0, 5, 10};
   const float ExpectedDamage[] = {10.f, 10.5f, 11.f, 11.f};
   const int32 ExpectedCount[] = {1, 2, 3, 3};
@@ -181,7 +181,7 @@ bool FDrEffectTickPhaseTest::RunTest(const FString &) {
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
   Owner.ASC->SetNumericAttributeBase(UDsAttributeSet::GetDefenseAttribute(),
                                      0.f);
-  FDrResolvedEffect Burn;
+  FDsResolvedEffect Burn;
   Burn.StateTag = DsTags::State_Debuff_Burn;
   Burn.Duration = 3.f;
   Burn.DamagePerTick = 10.f;
@@ -209,22 +209,22 @@ bool FDrEffectStackRulesTest::RunTest(const FString &) {
   DsEffectTests::FAbilityOwner Owner(Fixture.World);
   Owner.ASC->SetNumericAttributeBase(UDsAttributeSet::GetDefenseAttribute(),
                                      0.f);
-  FDrResolvedEffect Freeze;
+  FDsResolvedEffect Freeze;
   Freeze.StateTag = DsTags::State_Debuff_Chill;
   Freeze.Duration = 4.f;
   Freeze.MoveSpeedMultiplier = .5f;
-  Freeze.StackRule = EDrEffectStackRule::Accumulate;
+  Freeze.StackRule = EDsEffectStackRule::Accumulate;
   Freeze.StackBonus = {0, 3, 6};
   for (int32 Index = 0; Index < 3; ++Index)
     Owner.ASC->ApplyStatusEffect(Freeze, Owner.Actor);
   TestEqual(TEXT("빙결 3단계는 이동 속도 0.47배"),
             Owner.ASC->GetMoveSpeedMultiplier(), .47f, .001f);
 
-  FDrResolvedEffect Shield;
+  FDsResolvedEffect Shield;
   Shield.StateTag = DsTags::State_Buff_Shield;
   Shield.Duration = 4.f;
   Shield.Magnitude = 120.f;
-  Shield.StackRule = EDrEffectStackRule::Refresh;
+  Shield.StackRule = EDsEffectStackRule::Refresh;
   Shield.StackBonus = {0, 10, 20};
   Owner.ASC->ApplyStatusEffect(Shield, Owner.Actor);
   TestEqual(TEXT("첫 보호막 단계"), Owner.ASC->GetStackCount(Shield.StateTag), 1);
@@ -237,11 +237,11 @@ bool FDrEffectStackRulesTest::RunTest(const FString &) {
   TestEqual(TEXT("보호막 소진 후 0단계"),
             Owner.ASC->GetStackCount(Shield.StateTag), 0);
 
-  FDrResolvedEffect Proc;
+  FDsResolvedEffect Proc;
   Proc.StateTag = DsTags::State_Debuff_Burn;
   Proc.Duration = 4.f;
   Proc.ProcInstantDamageCurHpPct = 10.f;
-  Proc.StackRule = EDrEffectStackRule::Accumulate;
+  Proc.StackRule = EDsEffectStackRule::Accumulate;
   Proc.StackBonus = {0, 5, 10};
   for (int32 Index = 0; Index < 3; ++Index)
     Owner.ASC->ApplyStatusEffect(Proc, Owner.Actor);
@@ -271,15 +271,15 @@ bool FDrEffectDataPathTest::RunTest(const FString &) {
   Data->RegisterAutoTables();
   Data->LoadAllTables();
 
-  const FDrEffectDefsRow *BurnRow =
-      Data->FindRowByKey<FDrEffectDefsRow>(TEXT("DA_EffectDefs"), 2001);
+  const FDsEffectDefsRow *BurnRow =
+      Data->FindRowByKey<FDsEffectDefsRow>(TEXT("DA_EffectDefs"), 2001);
   TestNotNull(TEXT("int32 Id로 화상 행 조회"), BurnRow);
   if (!BurnRow)
     return false;
 
-  const FDrResolvedEffect Burn = DrEffects::Resolve(*BurnRow);
+  const FDsResolvedEffect Burn = DsEffects::Resolve(*BurnRow);
   TestEqual(TEXT("화상은 누적 규칙"), static_cast<int32>(Burn.StackRule),
-            static_cast<int32>(EDrEffectStackRule::Accumulate));
+            static_cast<int32>(EDsEffectStackRule::Accumulate));
   TestEqual(TEXT("화상 보너스 단계 수"), Burn.StackBonus.Num(), 3);
   if (Burn.StackBonus.Num() == 3)
     TestEqual(TEXT("화상 3단계 보너스"), Burn.StackBonus[2], 10);
@@ -293,13 +293,13 @@ bool FDrEffectDataPathTest::RunTest(const FString &) {
   TestTrue(TEXT("데이터 Proc가 현재 체력을 감소"),
            Owner.Attributes->GetHealth() < HealthBefore);
 
-  const FDrEffectDefsRow *FreezeRow =
-      Data->FindRowByKey<FDrEffectDefsRow>(TEXT("DA_EffectDefs"), 2002);
+  const FDsEffectDefsRow *FreezeRow =
+      Data->FindRowByKey<FDsEffectDefsRow>(TEXT("DA_EffectDefs"), 2002);
   TestNotNull(TEXT("int32 Id로 빙결 행 조회"), FreezeRow);
   if (FreezeRow) {
-    const FDrResolvedEffect Freeze = DrEffects::Resolve(*FreezeRow);
+    const FDsResolvedEffect Freeze = DsEffects::Resolve(*FreezeRow);
     TestEqual(TEXT("빙결은 누적 규칙"), static_cast<int32>(Freeze.StackRule),
-              static_cast<int32>(EDrEffectStackRule::Accumulate));
+              static_cast<int32>(EDsEffectStackRule::Accumulate));
     Owner.ASC->ApplyStatusEffect(Freeze, Owner.Actor);
     TestEqual(TEXT("데이터 이동 배수 적용"),
               Owner.ASC->GetMoveSpeedMultiplier(), .5f);
@@ -383,13 +383,13 @@ bool FDrApplyEffectAbilityTest::RunTest(const FString &) {
   Data->RegisterAutoTables();
   Data->LoadAllTables();
 
-  FGameplayAbilitySpec Spec(UDrGameplayAbility_ApplyEffect::StaticClass(), 1);
+  FGameplayAbilitySpec Spec(UDsGameplayAbility_ApplyEffect::StaticClass(), 1);
   const FGameplayAbilitySpecHandle Handle = Caster.ASC->GiveAbility(Spec);
   FGameplayAbilitySpec *GrantedSpec =
       Caster.ASC->FindAbilitySpecFromHandle(Handle);
-  UDrGameplayAbility_ApplyEffect *AbilityInstance =
+  UDsGameplayAbility_ApplyEffect *AbilityInstance =
       GrantedSpec
-          ? Cast<UDrGameplayAbility_ApplyEffect>(GrantedSpec->GetPrimaryInstance())
+          ? Cast<UDsGameplayAbility_ApplyEffect>(GrantedSpec->GetPrimaryInstance())
           : nullptr;
   TestNotNull(TEXT("어빌리티 인스턴스 생성"), AbilityInstance);
   if (AbilityInstance)

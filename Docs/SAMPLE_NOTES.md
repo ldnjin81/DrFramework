@@ -4,8 +4,9 @@
 
 - 재구성(#65)으로 샘플 클래스가 Ds 접두사로 바뀌었다: `UDsSampleAnimInstance`·`ADsSampleEnemy`·`UDsSampleContent`(`Source/DrSample/DsSampleContent.h`). `Tools/build_sample_content.py`도 Ds 클래스를 쓰도록 고쳤고, 부모가 바뀐 에셋(플레이어·적·게임 모드 BP, ABP, DataAsset 2개, 맵)은 지우고 스크립트로 다시 만들었다. 입력 액션·몽타주는 클래스 참조가 없어 유지했다.
 - 테이블은 새 스키마로 다시 구웠다(`Content/Data`: DA_GameAssets·DA_EffectDefs·DA_BossAttack·DA_BossPhase·DA_EffectExtensions).
-- `DrSample.PIE.BasicCombat` 통과(이동, 공격 명중·피격, 적 추적·반격·플레이어 피격, 적 사망). 전체 자동화 70/70.
+- `DrSample.PIE.BasicCombat` 통과(이동, 공격 명중·피격, 적 추적·반격·플레이어 피격, 적 사망). 전체 자동화 70/70(당시).
 - 아래 #64 기록의 `DrSampleContent`·`ADrSampleEnemy`·`DrTestFixture.h` 같은 이름은 #64 당시 이름이다. 지금 이름은 위와 같고, 테스트 픽스처는 샘플 `Source/DrSample/Tests/DsTestFixture.h`, 기반 `Plugins/DrFramework/Source/DrFramework/Tests/DrTestWorld.h`·`DrTableTestFixture.h`다.
+- 이후(같은 날) Abilities·캐릭터 골격·상태 효과·GameAssets·EffectDefs도 샘플로 옮겼다. 기반 ASC·어빌리티·캐릭터는 Ds 클래스와 합쳤고, 테이블 에셋은 Ds 클래스로 `-Force` 재굽기했다. 샘플 BP는 재생성 없이 그대로 동작했다. DrTableSystem은 git 서브모듈이 됐다. 전체 자동화 72/72.
 - 남은 일: 렌더링 캡처(셰이더 작업 폴더 권한 문제), 피격 방향 4종 선택(#849), 메뉴·사운드·FX 콘텐츠.
 
 ## 작업 #64 기록

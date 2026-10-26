@@ -1,5 +1,5 @@
 #include "Combat/DsCombatFXData.h"
-#include "TableData/DrGameAssets.h"
+#include "TableData/DsGameAssets.h"
 #include "NiagaraSystem.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraMeshRendererProperties.h"
@@ -52,7 +52,7 @@ void UDsCombatFXData::ClearConversionEmitters(UNiagaraSystem* InSystem) {
 const UDsCombatFXData* UDsCombatFXData::Get() {
   static TWeakObjectPtr<UDsCombatFXData> Cached;
   if (!Cached.IsValid()) {
-    Cached = DrGameAssets::Load<UDsCombatFXData>(TEXT("CombatFX"));
+    Cached = DsGameAssets::Load<UDsCombatFXData>(TEXT("CombatFX"));
     if (!Cached.IsValid()) UE_LOG(LogTemp, Warning, TEXT("전투 FX 데이터가 없어 기본값을 사용합니다."));
   }
   return Cached.IsValid() ? Cached.Get() : GetDefault<UDsCombatFXData>();
