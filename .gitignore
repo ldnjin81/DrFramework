@@ -1,0 +1,22 @@
+# Unreal
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vs/
+.vscode/
+.idea/
+*.sln
+*.VC.db
+*.opensdf
+*.suo
+*.xcworkspace
+unreal/**/Binaries/
+unreal/**/Intermediate/
+
+# 기타
+.DS_Store
+*.inspect.ndjson
+*.slnx
+.vsconfig
