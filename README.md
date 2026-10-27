@@ -51,7 +51,7 @@
 .\Tools\verify.ps1      # 기본 엔진 경로: C:\Program Files\Epic Games\UE_5.8
 ```
 
-UE 5.8.2 기준: 호스트 빌드 성공, `DrFramework.*` 5/5(네트워크 3, 가짜 서버 처리기 2). 샘플 위에서의 통합 검증(72개, PIE 포함)은 DrSample 저장소에서 실행한다.
+UE 5.8.2 기준: 호스트 빌드 성공, `DrFramework.*` 6/6(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1). 샘플 위에서의 통합 검증(PIE 포함)은 DrSample 저장소에서 실행한다.
 
 ## 이름 규칙
 

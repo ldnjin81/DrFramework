@@ -72,7 +72,7 @@ UDrUISettings는 UDeveloperSettings(Config=Game, DefaultConfig), 프로젝트 �
 
 ## 검증 실행 틀
 
-UDrSmokeSubsystem.RegisterStep은 이름·판정 콜백·타임아웃을 순서대로 등록한다. 콜백 결과는 Pending·Passed·Failed다. StartSmoke가 티커를 시작하고 실패/타임아웃 시 즉시 종료, 전부 성공 시 종료한다. Saved/Smoke/result.json에 결과를 기록한다. 기반은 실제 게임 단계를 등록하지 않는다. 게임 파생이 시나리오를 구성한다.
+UDrSmokeSubsystem.RegisterStep은 이름(FString)·판정 콜백·타임아웃을 순서대로 등록한다. 이름은 결과 JSON 키로 대소문자 그대로, 등록 순서대로 쓰인다(FName은 엔진에 먼저 등록된 표기를 따르므로 키에 쓰지 않는다). 결과 JSON은 정적 함수 MakeResultJson으로 만든다. 콜백 결과는 Pending·Passed·Failed다. StartSmoke가 티커를 시작하고 실패/타임아웃 시 즉시 종료, 전부 성공 시 종료한다. Saved/Smoke/result.json에 결과를 기록한다. 기반은 실제 게임 단계를 등록하지 않는다. 게임 파생이 시나리오를 구성한다.
 
 UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 제공한다. 표본을 정렬하고 평균·ceil(N*.95)-1 인덱스의 p95·최댓값을 계산한다. 빈 표본의 수치는 null이다. 카메라·측정 시작 조건·구간 이름·파일 출력은 게임이 제공한다.
 
@@ -87,4 +87,4 @@ UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 �
 
 ## 검증 명령과 문서 규약
 
-`Tools/verify.ps1`이 호스트 빌드와 `Automation RunTests DrFramework`를 실행한다(헤드리스: `-ExecCmds="Automation RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`). 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2), 게임 테스트는 게임 모듈 이름을 쓴다(샘플은 DrSample.*, 샘플 저장소에서 실행). 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 각 게임의 설계서(샘플은 SAMPLE_DESIGN.md)에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
+`Tools/verify.ps1`이 호스트 빌드와 `Automation RunTests DrFramework`를 실행한다(헤드리스: `-ExecCmds="Automation RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`). 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1), 게임 테스트는 게임 모듈 이름을 쓴다(샘플은 DrSample.*, 샘플 저장소에서 실행). 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 각 게임의 설계서(샘플은 SAMPLE_DESIGN.md)에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
