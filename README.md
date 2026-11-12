@@ -23,6 +23,7 @@
 | `unreal/DrFramework` | 플러그인(접두사 `Dr`, `DRFRAMEWORK_API`) |
 | `Host/DrFrameworkHost.uproject` | 단독 빌드·테스트용 호스트(코드 모듈 없음) |
 | `Tools/verify.ps1` | 호스트 빌드 + `Automation RunTests DrFramework` |
+| `Tools/package_win64.ps1` 외 3개 | 게임 패키지 검증: 패키징·스모크·성능 측정·묶음 PSO 캐시 |
 | `Docs/FRAMEWORK_FOR_AI.md` | 설계 명세서 |
 | `LICENSE` | MIT 라이선스 |
 
@@ -36,7 +37,7 @@
 | 가짜 서버 | `UDrFakeServer::RegisterHandler(Id, 처리기)`, 기본 Ping | 로그인·프로필 처리기 |
 | 콘텐츠 | `UDrContentBase`·`UDrContentSubsystem`, `UDrContentSettings` 등록 목록, 서버 push 라우팅 | 프로필 콘텐츠 |
 | UI | 화면 층(`UDrUIRootLayout`), 메뉴 동작(`UDrMenuWidget`), HUD 기반(`UDrHUDWidget`), `ADrPlayerController` 메뉴 스택·일시정지, `UDrUISettings` | 타이틀·일시정지·설정 메뉴, 전투 HUD |
-| 검증 | 단계 등록형 스모크(`UDrSmokeSubsystem::RegisterStep`), 성능 표본 통계(`UDrPerfSubsystem`) | 스모크 단계·측정 경로 |
+| 검증 | `-DrSmokeTest` 단계 등록형 스모크(`RegisterSmokeSteps`), `-DrPerfCapture` 성능 측정 틀(준비·예열·구간·결과 JSON), 패키지 검증 도구 | 스모크 단계, 측정 준비·카메라 경로 |
 
 ## 게임에 넣기
 
@@ -51,7 +52,19 @@
 .\Tools\verify.ps1      # 기본 엔진 경로: C:\Program Files\Epic Games\UE_5.8
 ```
 
-UE 5.8.2 기준: 호스트 빌드 성공, `DrFramework.*` 6/6(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1). 샘플 위에서의 통합 검증(PIE 포함)은 DrSample 저장소에서 실행한다.
+UE 5.8.2 기준: 호스트 빌드 성공, `DrFramework.*` 8/8(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1, 성능 2). 샘플 위에서의 통합 검증(PIE 포함)은 DrSample 저장소에서 실행한다.
+
+게임 패키지 검증(게임이 `RegisterSmokeSteps`와 `UDrPerfSubsystem` 파생을 제공할 때):
+
+```powershell
+$p = 'C:\Game\Game.uproject'
+.\Tools\package_win64.ps1 -Project $p             # → <프로젝트>\Saved\Package\Windows\Game.exe
+.\Tools\smoke_win64.ps1 -Project $p -Offscreen    # -DrSmokeTest, Saved\Smoke\result.json 검사
+.\Tools\perf_win64.ps1 -Project $p -Offscreen     # -DrPerfCapture, 1080p 구간별 p95
+.\Tools\pso_bundle_win64.ps1 -Project $p          # 묶음 PSO 캐시(NeedsShaderStableKeys=true 필요) → 다시 package_win64.ps1
+```
+
+`-Offscreen`은 창 없이(-RenderOffscreen) 렌더링하므로 SSH 같은 원격 세션에서 쓴다.
 
 ## 이름 규칙
 

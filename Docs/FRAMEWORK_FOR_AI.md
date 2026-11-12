@@ -72,9 +72,11 @@ UDrUISettings는 UDeveloperSettings(Config=Game, DefaultConfig), 프로젝트 �
 
 ## 검증 실행 틀
 
-UDrSmokeSubsystem.RegisterStep은 이름(FString)·판정 콜백·타임아웃을 순서대로 등록한다. 이름은 결과 JSON 키로 대소문자 그대로, 등록 순서대로 쓰인다(FName은 엔진에 먼저 등록된 표기를 따르므로 키에 쓰지 않는다). 결과 JSON은 정적 함수 MakeResultJson으로 만든다. 콜백 결과는 Pending·Passed·Failed다. StartSmoke가 티커를 시작하고 실패/타임아웃 시 즉시 종료, 전부 성공 시 종료한다. Saved/Smoke/result.json에 결과를 기록한다. 기반은 실제 게임 단계를 등록하지 않는다. 게임 파생이 시나리오를 구성한다.
+UDrSmokeSubsystem.RegisterStep은 이름(FString)·판정 콜백·타임아웃을 순서대로 등록한다. 이름은 결과 JSON 키로 대소문자 그대로, 등록 순서대로 쓰인다(FName은 엔진에 먼저 등록된 표기를 따르므로 키에 쓰지 않는다). 결과 JSON은 정적 함수 MakeResultJson으로 만든다. 콜백 결과는 Pending·Passed·Failed다. StartSmoke가 티커를 시작하고 실패/타임아웃 시 즉시 종료, 전부 성공 시 종료한다(종료 코드 0/1). Saved/Smoke/result.json에 결과를 기록한다. 실행 인자 -DrSmokeTest가 있으면 Initialize가 가상 함수 RegisterSmokeSteps를 부른 뒤 StartSmoke를 부른다. 등록된 단계가 하나도 없으면 실패로 끝난다. 기반은 실제 게임 단계를 등록하지 않는다. 게임 파생이 RegisterSmokeSteps에서 시나리오를 구성한다. 파생 클래스가 있으면 기반 서브시스템은 만들어지지 않는다(ShouldCreateSubsystem, 스모크가 두 번 돌지 않게).
 
-UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 제공한다. 표본을 정렬하고 평균·ceil(N*.95)-1 인덱스의 p95·최댓값을 계산한다. 빈 표본의 수치는 null이다. 카메라·측정 시작 조건·구간 이름·파일 출력은 게임이 제공한다.
+UDrPerfSubsystem은 측정 틀이다. 실행 인자 -DrPerfCapture가 있으면 티커를 시작해 ① PrepareCapture(World, OutError)가 true를 돌려줄 때까지 기다리고(PrepareTimeoutSeconds 기본 180초, OutError를 채우면 실패) ② 엔진 기본 품질(메모리에만)·stat unit·t.MaxFPS 0·r.VSync 0을 적용한 뒤 ③ WarmupSeconds(10초) 동안 UpdateCapture(World, INDEX_NONE, 0)을 부르고 ④ SectionNames 순서대로 구간마다 SectionSeconds(15초)씩 UpdateCapture(World, 구간, 진행률)를 부르며 frame(틱 간격)·game·gpu(FStatUnitData Raw 값) 표본을 모은다 ⑤ Saved/Perf/result.json(error·duration_seconds·frame_budget_ms·scalability·width·height·completed·sections[name·frame·game_thread·gpu·over_budget·candidate_causes] + AddResultFields)을 쓰고 종료한다. 구간 p95 프레임이 FrameBudgetMs(16.7)를 넘으면 over_budget이고 OverBudgetHint를 candidate_causes로 남긴다. 예산 초과는 실패가 아니며, 표본 누락·구간 없음·저장 실패만 종료 코드 1이다. Summarize는 표본을 정렬해 평균·ceil(N*.95)-1 인덱스의 p95·최댓값을 계산하고 빈 표본은 null이다. SectionAt(경과, 구간 길이, 구간 수)는 구간과 진행률을 계산한다(끝나면 false). 게임은 생성자에서 SectionNames 등을 정하고 준비·카메라 이동만 구현한다. 파생 클래스가 있으면 기반 서브시스템은 만들어지지 않는다.
+
+패키지 검증 도구(Tools/, Windows PowerShell, 인자 -Project <uproject> [-Out <폴더>, 기본 <프로젝트>/Saved/Package]): package_win64.ps1(RunUAT BuildCookRun, pak+iostore, -Maps 선택), smoke_win64.ps1(-DrSmokeTest로 실행, 이전 결과를 지우고 passed와 모든 단계를 검사, -Offscreen은 -RenderOffscreen), perf_win64.ps1(-DrPerfCapture, 해상도·completed 검사, 예산 초과는 경고), pso_bundle_win64.ps1(-logPSO로 -Runs 경로를 돌려 기록을 모으고 ShaderPipelineCacheTools expand로 Build/Windows/PipelineCaches/PSO_<프로젝트>_<형식>.spc 생성. 전제: [DevOptions.Shaders] NeedsShaderStableKeys=true. 순서: 패키징 → PSO → 다시 패키징). 원격(SSH) 세션에서는 -Offscreen을 쓴다.
 
 ## 빈 프로젝트에서 재현
 
@@ -83,8 +85,8 @@ UDrPerfSubsystem은 구간별 frame/game/gpu 표본 저장소와 Summarize를 �
 3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. CommonGameViewportClient를 지정한다.
 4. UI 클래스·입력·맵 설정은 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.
 5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 저장소의 `Host/DrFrameworkHost.uproject`(코드 모듈 없음, `AdditionalPluginDirectories`로 `unreal`을 가리킴)를 `Build.bat UnrealEditor Win64 Development -Project=Host/DrFrameworkHost.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·다른 플러그인 없이 통과해야 한다.
-6. 에디터가 닫힌 환경에서 Automation List 후 DrFramework와 게임 테스트를 실행한다. 외부 엔진 버전에서는 엔진 API 차이를 조정한다.
+6. 에디터가 닫힌 환경에서 DrFramework와 게임 테스트를 실행한다(-ExecCmds에는 `Automation RunTests …` 하나만 쓴다. 앞에 `Automation List;`를 붙이면 0개가 실행된다). 외부 엔진 버전에서는 엔진 API 차이를 조정한다.
 
 ## 검증 명령과 문서 규약
 
-`Tools/verify.ps1`이 호스트 빌드와 `Automation RunTests DrFramework`를 실행한다(헤드리스: `-ExecCmds="Automation RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`). 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1), 게임 테스트는 게임 모듈 이름을 쓴다(샘플은 DrSample.*, 샘플 저장소에서 실행). 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 각 게임의 설계서(샘플은 SAMPLE_DESIGN.md)에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.
+`Tools/verify.ps1`이 호스트 빌드와 `Automation RunTests DrFramework`를 실행한다(헤드리스: `-ExecCmds="Automation RunTests DrFramework" -TestExit="Automation Test Queue Empty" -nullrhi -unattended`). 기반 테스트는 DrFramework.*(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1, 성능 구간·요약 2), 게임 테스트는 게임 모듈 이름을 쓴다(샘플은 DrSample.*, 샘플 저장소에서 실행). 기반 동작의 구조 변경은 이 파일과 README에 함께 반영하며, 게임 동작은 각 게임의 설계서(샘플은 SAMPLE_DESIGN.md)에 적는다. 이 파일 이름은 릴리스 다운로드 계약이므로 바꾸지 않는다.

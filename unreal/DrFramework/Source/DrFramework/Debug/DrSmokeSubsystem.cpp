@@ -3,10 +3,23 @@
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "Serialization/JsonSerializer.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "UObject/UObjectHash.h"
+DEFINE_LOG_CATEGORY_STATIC(LogDrSmoke,Log,All);
+bool UDrSmokeSubsystem::IsSmokeRequested() { return FParse::Param(FCommandLine::Get(),TEXT("DrSmokeTest")); }
+bool UDrSmokeSubsystem::ShouldCreateSubsystem(UObject* Outer) const { TArray<UClass*> Derived; GetDerivedClasses(GetClass(),Derived,false); return Derived.IsEmpty() && Super::ShouldCreateSubsystem(Outer); }
+void UDrSmokeSubsystem::Initialize(FSubsystemCollectionBase& Collection) {
+ Super::Initialize(Collection);
+ if(!IsSmokeRequested()) return;
+ RegisterSmokeSteps();
+ if(RegisteredSteps.IsEmpty()) UE_LOG(LogDrSmoke,Error,TEXT("-DrSmokeTest: 등록된 스모크 단계가 없습니다(%s::RegisterSmokeSteps)"),*GetClass()->GetName());
+ StartSmoke();
+}
 void UDrSmokeSubsystem::RegisterStep(const FString& Name,TFunction<EDrSmokeResult(float)> Check,float TimeoutSeconds) { RegisteredSteps.Add({Name,MoveTemp(Check),FMath::Max(.01f,TimeoutSeconds)}); }
 void UDrSmokeSubsystem::StartSmoke() { if(Ticker.IsValid()) return; CurrentStep=0; Elapsed=0; Results.Empty(); Ticker=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this,&ThisClass::Tick)); }
 bool UDrSmokeSubsystem::Tick(float DeltaTime) {
- if(!RegisteredSteps.IsValidIndex(CurrentStep)) { OnSmokeFinished(true); Ticker.Reset(); return false; }
+ if(!RegisteredSteps.IsValidIndex(CurrentStep)) { OnSmokeFinished(!RegisteredSteps.IsEmpty()); Ticker.Reset(); return false; }
  Elapsed+=DeltaTime; auto& Step=RegisteredSteps[CurrentStep];
  auto Result=Step.Check(Elapsed); if(Elapsed>Step.Timeout) Result=EDrSmokeResult::Failed;
  if(Result==EDrSmokeResult::Pending) return true;

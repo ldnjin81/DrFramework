@@ -13,8 +13,15 @@ public:
  /** 결과 JSON(passed + 등록 순서의 steps)을 만든다. */
  static TSharedRef<FJsonObject> MakeResultJson(bool bPassed,const TArray<TPair<FString,bool>>& StepResults);
  void StartSmoke();
+ /** 실행 인자 -DrSmokeTest가 있는지. Tools/smoke_win64.ps1이 이 인자로 패키지를 실행한다. */
+ static bool IsSmokeRequested();
+ /** 파생 클래스가 있으면 기반은 만들지 않는다(같은 게임 인스턴스에서 스모크가 두 번 돌지 않게). */
+ virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
+ virtual void Initialize(FSubsystemCollectionBase& Collection) override;
  virtual void Deinitialize() override;
 protected:
+ /** -DrSmokeTest로 실행됐을 때 Initialize가 부른다. 게임은 여기서 RegisterStep으로 단계를 등록하고, 끝나면 스모크가 시작된다. */
+ virtual void RegisterSmokeSteps() {}
  virtual void OnSmokeFinished(bool bPassed);
 private:
  struct FStep { FString Name; TFunction<EDrSmokeResult(float)> Check; float Timeout; };
