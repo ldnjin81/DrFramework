@@ -15,7 +15,7 @@ class DRFRAMEWORK_API UDrPerfSubsystem : public UGameInstanceSubsystem {
   GENERATED_BODY()
 public:
   static bool IsCaptureRequested();
-  /** 파생 클래스가 있으면 기반은 만들지 않는다. */
+  /** 만들어질 파생이 있으면 기반은 만들지 않는다. */
   virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
   virtual void Initialize(FSubsystemCollectionBase& Collection) override;
   virtual void Deinitialize() override;
@@ -28,8 +28,9 @@ public:
 protected:
   /** 측정 준비. 맵 이동·카메라 생성 등을 하고, 준비되면 true를 돌려준다. OutError를 채우면 측정을 실패로 끝낸다. */
   virtual bool PrepareCapture(UWorld& World, FString& OutError) { return true; }
-  /** 예열(Section = INDEX_NONE)과 측정 중 매 틱 부른다. Alpha는 구간 진행률(0~1). 카메라를 옮긴다. */
-  virtual void UpdateCapture(UWorld& World, int32 Section, float Alpha) {}
+  /** 예열(Section = INDEX_NONE)과 측정 중 매 틱 부른다. Alpha는 구간 진행률(0~1). 카메라를 옮긴다.
+      false를 돌려주면(카메라를 잃는 등) 측정을 실패로 끝낸다. */
+  virtual bool UpdateCapture(UWorld& World, int32 Section, float Alpha) { return true; }
   /** 결과 JSON에 게임 정보를 더한다. */
   virtual void AddResultFields(FJsonObject& Root) const {}
 

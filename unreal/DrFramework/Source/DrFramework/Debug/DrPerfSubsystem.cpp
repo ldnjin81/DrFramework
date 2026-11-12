@@ -11,15 +11,13 @@
 #include "Misc/Paths.h"
 #include "Scalability.h"
 #include "Serialization/JsonSerializer.h"
-#include "UObject/UObjectHash.h"
+#include "Debug/DrDebugSubsystems.h"
 #include "UnrealClient.h"
 
 bool UDrPerfSubsystem::IsCaptureRequested() { return FParse::Param(FCommandLine::Get(), TEXT("DrPerfCapture")); }
 
 bool UDrPerfSubsystem::ShouldCreateSubsystem(UObject* Outer) const {
-  TArray<UClass*> Derived;
-  GetDerivedClasses(GetClass(), Derived, false);
-  return Derived.IsEmpty() && Super::ShouldCreateSubsystem(Outer);
+  return Super::ShouldCreateSubsystem(Outer) && (GetClass() != StaticClass() || !DrDebugSubsystems::HasCreatableDerived(StaticClass(), Outer));
 }
 
 void UDrPerfSubsystem::Initialize(FSubsystemCollectionBase& Collection) {
@@ -86,14 +84,15 @@ bool UDrPerfSubsystem::Tick(float) {
   }
   if (!World) return Finish(TEXT("측정 중 월드가 사라짐"));
   if (Now - WarmupStarted < WarmupSeconds) {
-    UpdateCapture(*World, INDEX_NONE, 0);
+    if (!UpdateCapture(*World, INDEX_NONE, 0)) return Finish(TEXT("측정 갱신 실패(UpdateCapture, 예열)"));
     return true;
   }
   if (!CaptureStarted) CaptureStarted = LastFrame = Now;
   int32 Section = 0;
   float Alpha = 0;
   if (!SectionAt(Now - CaptureStarted, SectionSeconds, SectionNames.Num(), Section, Alpha)) return Finish();
-  UpdateCapture(*World, Section, Alpha);
+  // 카메라를 잃는 등 같은 조건으로 잴 수 없으면 실패로 끝낸다(다른 화면을 잰 수치를 완료로 남기지 않게).
+  if (!UpdateCapture(*World, Section, Alpha)) return Finish(FString::Printf(TEXT("측정 갱신 실패(UpdateCapture, 구간 %d)"), Section));
   if (Now > LastFrame) {
     FSample Sample;
     Sample.Frame = (Now - LastFrame) * 1000;

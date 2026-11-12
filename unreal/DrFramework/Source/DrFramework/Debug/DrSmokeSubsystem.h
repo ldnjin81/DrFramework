@@ -15,7 +15,7 @@ public:
  void StartSmoke();
  /** 실행 인자 -DrSmokeTest가 있는지. Tools/smoke_win64.ps1이 이 인자로 패키지를 실행한다. */
  static bool IsSmokeRequested();
- /** 파생 클래스가 있으면 기반은 만들지 않는다(같은 게임 인스턴스에서 스모크가 두 번 돌지 않게). */
+ /** 만들어질 파생이 있으면 기반은 만들지 않는다(같은 게임 인스턴스에서 스모크가 두 번 돌지 않게). */
  virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
  virtual void Initialize(FSubsystemCollectionBase& Collection) override;
  virtual void Deinitialize() override;

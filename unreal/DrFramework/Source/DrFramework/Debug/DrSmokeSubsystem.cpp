@@ -5,10 +5,10 @@
 #include "Serialization/JsonSerializer.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
-#include "UObject/UObjectHash.h"
+#include "Debug/DrDebugSubsystems.h"
 DEFINE_LOG_CATEGORY_STATIC(LogDrSmoke,Log,All);
 bool UDrSmokeSubsystem::IsSmokeRequested() { return FParse::Param(FCommandLine::Get(),TEXT("DrSmokeTest")); }
-bool UDrSmokeSubsystem::ShouldCreateSubsystem(UObject* Outer) const { TArray<UClass*> Derived; GetDerivedClasses(GetClass(),Derived,false); return Derived.IsEmpty() && Super::ShouldCreateSubsystem(Outer); }
+bool UDrSmokeSubsystem::ShouldCreateSubsystem(UObject* Outer) const { return Super::ShouldCreateSubsystem(Outer) && (GetClass()!=StaticClass() || !DrDebugSubsystems::HasCreatableDerived(StaticClass(),Outer)); }
 void UDrSmokeSubsystem::Initialize(FSubsystemCollectionBase& Collection) {
  Super::Initialize(Collection);
  if(!IsSmokeRequested()) return;

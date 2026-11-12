@@ -11,21 +11,16 @@ param(
     [string[]]$ExtraArgs = @()
 )
 $ErrorActionPreference = 'Stop'
-$Name = [IO.Path]::GetFileNameWithoutExtension($Project)
-if (-not $Out) { $Out = Join-Path (Split-Path (Resolve-Path $Project).Path) 'Saved\Package' }
-$BuildRoot = Join-Path $Out 'Windows'
-$exe = Join-Path $BuildRoot "$Name.exe"
-$result = Join-Path $BuildRoot "$Name\Saved\Perf\result.json"
-if (-not (Test-Path -LiteralPath $exe)) { throw "패키지 실행 파일 없음: $exe (먼저 package_win64.ps1)" }
-if (Test-Path -LiteralPath $result) { Remove-Item -LiteralPath $result }
+. (Join-Path $PSScriptRoot '_package_common.ps1')
+$p = Resolve-PackagePaths $Project $Out
+Clear-Results $p
 $arguments = @('-DrPerfCapture', '-unattended', "-ResX=$Width", "-ResY=$Height", '-ForceRes', '-nosplash', '-log') + $ExtraArgs
 $arguments += $(if ($Offscreen) { '-RenderOffscreen' } else { '-windowed' })
-$process = Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory $BuildRoot -WindowStyle Hidden -PassThru
-if (-not $process.WaitForExit($TimeoutSeconds * 1000)) { Stop-Process -Id $process.Id -Force; throw '성능 측정 제한 시간 초과' }
-if (-not (Test-Path -LiteralPath $result)) { throw "성능 결과 파일 없음: $result (게임 종료 코드 $($process.ExitCode))" }
-$report = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
+Invoke-PackagedGame $p $arguments $TimeoutSeconds '성능 측정'
+$r = Read-PerfResult $p
+$report = $r.Report
 $report | ConvertTo-Json -Depth 8
-if ($process.ExitCode -ne 0 -or -not $report.completed) { throw "성능 측정 실패 또는 표본 누락: $($report.error)" }
+if (-not $r.Passed) { throw "성능 측정 실패 또는 표본 누락: $($report.error)" }
 if ($report.width -ne $Width -or $report.height -ne $Height) { throw "해상도 불일치: $($report.width)x$($report.height)" }
 foreach ($section in $report.sections) {
     if ($section.over_budget) { Write-Warning "$($section.name): p95 $($section.frame.p95_ms)ms > $($report.frame_budget_ms)ms. $($section.candidate_causes)" }
