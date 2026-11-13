@@ -7,7 +7,7 @@
 이 기반 위에 실제 게임을 얹는 방법은 **[DrSample 샘플 프로젝트](https://github.com/ldnjin81/DrSample)**(접두사 `Ds`)가 보여 준다. 샘플은 기반 클래스를 상속·설정해 근접 전투 게임 한 판을 만든 예시이며, 명세는 [SAMPLE_DESIGN.md](https://github.com/ldnjin81/DrSample/blob/main/Docs/SAMPLE_DESIGN.md)(샘플 설계 설명서)에 있다.
 
 - **참고만 하고 포함하지 않는다.** 소비 게임은 DrFramework 플러그인(정적 데이터가 필요하면 DrTableSystem 포함)만 넣고, 장르 코드는 자기 모듈에 자기 접두사로 둔다. 샘플 코드는 필요한 부분을 보고 따라 만들거나 복사해 출발점으로 삼는다.
-- 샘플에서 볼 수 있는 것: 부팅 단계(연결→Ping→로그인→프로필), 가짜 서버 처리기·메시지 ID 정의, 콘텐츠 등록, 메뉴·HUD 파생과 `UDrUISettings` 설정, 스모크 단계 등록, DrTableSystem 테이블 생성·등록·굽기, GAS 상태 효과·어빌리티·속성 세트, 캐릭터·보스·엔카운터, Lyra 콘텐츠 가져오기와 PIE 검증.
+- 샘플에서 볼 수 있는 것: 부팅 단계(연결→Ping→로그인→프로필), 가짜 서버 처리기·메시지 ID 정의, 콘텐츠 등록, 게임 흐름 훅(`OnEnterTitle`·`OnEnterGame`)에서 DrUIKit UI 흐름을 시작하는 법과 `UDrFlowSettings` 맵 설정, 스모크 단계 등록, DrTableSystem 테이블 생성·등록·굽기, GAS 상태 효과·어빌리티·속성 세트, 캐릭터·보스·엔카운터, Lyra 콘텐츠 가져오기와 PIE 검증.
 - 기반 확장 지점과 샘플 구현의 대응은 SAMPLE_DESIGN.md의 "기반에서 확장한 지점" 표를 본다.
 - 샘플 저장소는 DrFramework와 DrTableSystem을 git 서브모듈(`Plugins/DrFramework`, `Plugins/DrTableSystem`)로 가져온다. 게임도 같은 방식(서브모듈 또는 복사)으로 플러그인을 넣는다.
 
@@ -15,15 +15,14 @@
 
 소비 게임 모듈 → DrFramework 방향만 허용하며, DrFramework는 다른 프로젝트 플러그인에 의존하지 않는다. 플러그인 클래스·구조체·열거형은 Dr 접두사, 공개 심볼은 DRFRAMEWORK_API를 쓴다. 모듈 루트를 PublicIncludePaths에 등록하고 다른 하위 폴더를 포함할 때 루트 상대 경로를 쓴다.
 
-필수 엔진 모듈은 Core·CoreUObject·Engine·DeveloperSettings·EnhancedInput·InputCore·UMG·CommonUI·CommonInput·Json·Slate·SlateCore다. 엔진 플러그인은 EnhancedInput·CommonUI만 요구한다. GAS(GameplayAbilities)·게임플레이 태그는 쓰지 않는다. 실제 빌드 선언은 DrFramework.Build.cs가 기준이다. 엔진 상속 타입의 헤더와 각 cpp 자신의 헤더를 명시적으로 포함한다.
+필수 엔진 모듈은 Core·CoreUObject·Engine·DeveloperSettings·InputCore·Json·Slate·SlateCore다. 엔진 플러그인을 요구하지 않는다(0.3.0부터 UI는 DrUIKit). GAS(GameplayAbilities)·게임플레이 태그는 쓰지 않는다. 실제 빌드 선언은 DrFramework.Build.cs가 기준이다. 엔진 상속 타입의 헤더와 각 cpp 자신의 헤더를 명시적으로 포함한다.
 
 | 폴더 | 책임 |
 | --- | --- |
-| Game | 부팅 단계 실행기·게임 모드·UI 컨트롤러·사용자 설정 확장점 |
+| Game | 부팅 단계 실행기·게임 모드·게임 흐름 컨트롤러(타이틀·시작·복귀·재시작)·흐름 설정·사용자 설정 확장점 |
 | Network | 끝점 연결 상태, 요청 Id·콜백·타임아웃·지연 큐 |
 | Backend | 게임이 등록하는 ID별 처리기를 실행하는 가짜 서버 |
 | Content | 콘텐츠 객체 등록·수명·서버 메시지 라우팅 |
-| UI | 화면 층·메뉴 동작·HUD 기반·프로젝트 설정 페이지 |
 | Debug | 단계 등록형 스모크, 성능 표본 통계 |
 
 ## 수명과 부팅
@@ -44,31 +43,33 @@
 
 DrFramework 코드는 테이블 시스템에 의존하지 않는다. 정적 데이터는 함께 쓰도록 권장하는 별도 플러그인 [DrTableSystem](https://github.com/ldnjin81/DrTableSystem)(스키마 → C++ 생성 → DataAsset 굽기 → `UDrTableSubsystem` 조회)으로 게임이 소유한다. 샘플은 DrTableSystem을 git 서브모듈(`Plugins/DrTableSystem`, 태그 고정)로 넣고 GameAssets(에셋 경로 표)·EffectDefs 등 모든 테이블을 자기 모듈에서 생성·등록한다. 게임은 자기 prefix로 생성하고, 자기 모듈 한 곳에서 `DRTABLE_AUTO_REGISTER`로 등록한다. drtable은 모듈 API 매크로를 붙이지 않으므로 다른 모듈이 행 정적 함수를 호출해야 하면 생성 직후 행 구조체에 모듈 API 매크로를 붙인다(샘플 `Tools/gen_tables.ps1` 참고).
 
-## UI: 코드 기반과 설정
+## 게임 흐름과 UI(0.3.0)
 
-UDrUIRootLayout은 게임 층과 메뉴 층의 CommonActivatableWidgetStack을 가진다. PushGame·PushMenu·PopMenu·ClearMenus로 조작한다. UDrMenuWidget은 Abstract이며 Menu 입력 모드, 첫 포커스 FirstFocus, ESC/Gamepad_Special_Right 되돌아가기, UI 입력 매핑만 처리한다. 화면 레이아웃이나 문자열은 게임/BP가 만든다. UDrHUDWidget도 Abstract이며 Game 입력 모드와 OnOwnerPawnChanged 훅을 제공한다.
+UI(화면 층·메뉴·HUD·일시정지 메뉴·입력 모드·확인 대화상자)는 0.3.0부터 별도 플러그인 **DrUIKit**(`UDrUIFlowSubsystem`, 로컬 플레이어 서브시스템)이 맡는다. DrFramework는 UI 플러그인에 의존하지 않고 게임 흐름만 남긴다.
 
-UDrUISettings는 UDeveloperSettings(Config=Game, DefaultConfig), 프로젝트 설정 표시 이름은 DrFramework UI다.
+ADrPlayerController는 타이틀 판정(IsTitleScreen, TitleMap 기반)·StartGame(타이틀 → GameMap)·ReturnToTitle(일시정지 해제 후 TitleMap)·RequestRestart(BlueprintNativeEvent, 기본은 일시정지 해제)만 가진다. 로컬 컨트롤러의 BeginPlay에서 타이틀 맵이면 OnEnterTitle, 아니면 OnEnterGame을 부르므로(블루프린트는 On Enter Title·On Enter Game) 게임은 여기서 UI 흐름을 시작한다. 예: `UDrUIFlowSubsystem::Get(this)->EnterTitle()`·`EnterGame()`. 일시정지 메뉴는 DrUIKit 흐름이 컨트롤러의 SetPause만 불러 처리한다.
 
-| 값 | 타입/의미 |
-| --- | --- |
-| TitleMenuClass·PauseMenuClass·SettingsMenuClass | TSoftClassPtr<UDrMenuWidget> |
-| HUDClass | TSoftClassPtr<UDrHUDWidget> |
-| UIInputContext | 메뉴 활성화 시 적용할 입력 매핑 |
-| PauseAction | 일시정지 토글 액션 |
-| MenuInputContext | 컨트롤러가 우선순위 100으로 등록할 매핑 |
-| TitleMap·GameMap | 타이틀 판정·화면 전환용 TSoftObjectPtr<UWorld> |
-
-모든 설정은 비어 있어도 허용한다. 클래스/맵이 없으면 해당 화면을 열지 않으며 임의 기본 메뉴·에셋을 로드하지 않는다. 메뉴 스택과 SetPause·입력 모드를 컨트롤러가 함께 관리한다. OpenPauseMenu는 타이틀/중복/CanOpenPauseMenu 조건을 확인하고 메뉴 클래스가 있을 때만 일시정지한다. Settings는 열린 메뉴에서만 추가한다. BackMenu는 설정을 먼저 닫고 이후 일시정지를 해제한다.
+UDrFlowSettings는 UDeveloperSettings(Config=Game, DefaultConfig), 프로젝트 설정 표시 이름은 DrFramework 흐름이다. 값은 TitleMap·GameMap(TSoftObjectPtr<UWorld>) 둘이고 비어 있어도 허용한다.
 
 | 컨트롤러 확장점 | 호출 시점 |
 | --- | --- |
-| OnHUDCreated | 게임 층 초기화 뒤, nullrhi에서는 nullptr도 전달 |
+| OnEnterTitle / OnEnterGame | 로컬 컨트롤러 BeginPlay, 타이틀 맵 여부에 따라 하나 |
 | OnPawnChanged | 소유 폰 변경, 초기 폰 포함 |
-| OnMenuChanged | 일시정지 메뉴 열기/닫기 |
-| CanOpenPauseMenu | 게임별 메뉴 허용 조건 |
-| RequestRestart (BlueprintNativeEvent) | 게임별 재시작; 기본은 메뉴 닫기 |
+| RequestRestart (BlueprintNativeEvent) | 게임별 재시작; 기본은 일시정지 해제 |
 | IsTitleScreen | TitleMap 설정 기반 판정, 필요 시 재정의 |
+
+0.2.0에서 옮기기:
+
+| 0.2.0 | 0.3.0 |
+| --- | --- |
+| UDrUIRootLayout (DrFramework) | DrUIKit UDrUIRootLayout(게임·메뉴·모달·알림 층, UI 흐름이 만든다) |
+| UDrMenuWidget | DrUIKit UDrUIMenuWidget |
+| UDrHUDWidget | DrUIKit UDrUIHUDWidget |
+| UDrUISettings 메뉴·HUD 클래스, UIInputContext·PauseAction·MenuInputContext | DrUIKit UDrUIKitSettings '흐름'·'입력' |
+| UDrUISettings TitleMap·GameMap | UDrFlowSettings |
+| ADrPlayerController OpenPauseMenu·ClosePauseMenu·TogglePauseMenu·OpenSettings·BackMenu·IsMenuInput·IsPauseMenuOpen·GetHUDWidget·OnHUDCreated·OnMenuChanged·CanOpenPauseMenu | UDrUIFlowSubsystem OpenPauseMenu·ClosePauseMenu·TogglePauseMenu·OpenSettings·Back·IsMenuInput·IsPauseMenuOpen·GetHUD·OnMenuChanged·CanOpenPauseMenu |
+
+블루프린트·에셋이 옛 클래스를 참조하면 게임 DefaultEngine.ini [CoreRedirects]에 `+ClassRedirects=(OldName="/Script/DrFramework.DrMenuWidget",NewName="/Script/DrUIKit.DrUIMenuWidget")`, `+ClassRedirects=(OldName="/Script/DrFramework.DrHUDWidget",NewName="/Script/DrUIKit.DrUIHUDWidget")`, `+ClassRedirects=(OldName="/Script/DrFramework.DrUIRootLayout",NewName="/Script/DrUIKit.DrUIRootLayout")`를 넣는다. DefaultGame.ini의 `[/Script/DrFramework.DrUISettings]` 값은 맵은 `[/Script/DrFramework.DrFlowSettings]`로, 나머지는 `[/Script/DrUIKit.DrUIKitSettings]`로 옮긴다.
 
 ## 검증 실행 틀
 
@@ -80,10 +81,10 @@ UDrPerfSubsystem은 측정 틀이다. 실행 인자 -DrPerfCapture가 있으면 
 
 ## 빈 프로젝트에서 재현
 
-1. UE 5.8 프로젝트에 DrFramework를 넣고 활성화한다(CommonUI·EnhancedInput이 함께 켜진다). 정적 데이터가 필요하면 DrTableSystem도 함께 넣는다(권장). 전투·능력치가 필요하면 GAS는 게임이 직접 켠다(샘플 참고).
+1. UE 5.8 프로젝트에 DrFramework를 넣고 활성화한다. UI가 필요하면 DrUIKit(CommonUI·EnhancedInput 사용)을 함께 넣는다. 정적 데이터가 필요하면 DrTableSystem도 함께 넣는다(권장). 전투·능력치가 필요하면 GAS는 게임이 직접 켠다(샘플 참고).
 2. 소비 게임 모듈에 DrFramework를 의존성으로 추가한다. Target은 namespace 없이 BuildSettingsVersion.V7·EngineIncludeOrderVersion.Latest를 쓴다.
-3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. CommonGameViewportClient를 지정한다.
-4. UI 클래스·입력·맵 설정은 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.
+3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. DrUIKit을 쓰면 CommonGameViewportClient를 지정한다.
+4. 맵 설정(DrFramework 흐름)과, DrUIKit을 쓰면 메뉴·HUD·입력 설정(DrUIKit '흐름'·'입력')을 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.
 5. 플러그인 안에 소비 게임 include·타입·에셋 경로가 없는지 검사하고, DrSample 없이 빌드할 수 있음을 검증한다. 단독 검증은 저장소의 `Host/DrFrameworkHost.uproject`(코드 모듈 없음, `AdditionalPluginDirectories`로 `unreal`을 가리킴)를 `Build.bat UnrealEditor Win64 Development -Project=Host/DrFrameworkHost.uproject`로 빌드하고 `Automation RunTests DrFramework`를 실행한다. 기반 테스트는 게임 데이터·다른 플러그인 없이 통과해야 한다.
 6. 에디터가 닫힌 환경에서 DrFramework와 게임 테스트를 실행한다(-ExecCmds에는 `Automation RunTests …` 하나만 쓴다. 앞에 `Automation List;`를 붙이면 0개가 실행된다). 외부 엔진 버전에서는 엔진 API 차이를 조정한다.
 

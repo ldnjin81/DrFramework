@@ -1,6 +1,6 @@
 # DrFramework
 
-장르와 무관한 언리얼 엔진(UE 5.8) 게임 런타임 프레임워크 플러그인이다. 부팅 흐름·네트워크·가짜 서버·콘텐츠 등록·UI 흐름·검증 틀 같은 재사용 기반만 담는다. 다른 프로젝트 플러그인과 GAS에 의존하지 않으며(엔진 플러그인은 EnhancedInput·CommonUI만), 게임 모듈 없이 단독으로 빌드·테스트된다.
+장르와 무관한 언리얼 엔진(UE 5.8) 게임 런타임 프레임워크 플러그인이다. 부팅 흐름·네트워크·가짜 서버·콘텐츠 등록·게임 흐름·검증 틀 같은 재사용 기반만 담는다. 다른 프로젝트 플러그인·엔진 플러그인·GAS에 의존하지 않으며, 게임 모듈 없이 단독으로 빌드·테스트된다. UI(화면 층·메뉴·HUD·일시정지 메뉴)는 0.3.0부터 별도 플러그인 DrUIKit이 맡는다.
 
 | 관련 저장소 | 관계 |
 | --- | --- |
@@ -36,14 +36,14 @@
 | 네트워크 | 요청 Id·콜백·타임아웃·지연 큐, 게임 정의 메시지 ID(FName) | 메시지 ID·페이로드 정의 |
 | 가짜 서버 | `UDrFakeServer::RegisterHandler(Id, 처리기)`, 기본 Ping | 로그인·프로필 처리기 |
 | 콘텐츠 | `UDrContentBase`·`UDrContentSubsystem`, `UDrContentSettings` 등록 목록, 서버 push 라우팅 | 프로필 콘텐츠 |
-| UI | 화면 층(`UDrUIRootLayout`), 메뉴 동작(`UDrMenuWidget`), HUD 기반(`UDrHUDWidget`), `ADrPlayerController` 메뉴 스택·일시정지, `UDrUISettings` | 타이틀·일시정지·설정 메뉴, 전투 HUD |
+| 게임 흐름 | `ADrPlayerController`(타이틀 판정·시작·복귀·재시작, `OnEnterTitle`·`OnEnterGame` 훅), `UDrFlowSettings`(타이틀·게임 맵) | 타이틀·일시정지·설정 메뉴, 전투 HUD(UI는 DrUIKit으로) |
 | 검증 | `-DrSmokeTest` 단계 등록형 스모크(`RegisterSmokeSteps`), `-DrPerfCapture` 성능 측정 틀(준비·예열·구간·결과 JSON), 패키지 검증 도구 | 스모크 단계, 측정 준비·카메라 경로 |
 
 ## 게임에 넣기
 
 1. 플러그인을 게임의 `Plugins/DrFramework`에 둔다(서브모듈 `git submodule add https://github.com/ldnjin81/DrFramework Plugins/DrFramework` 또는 복사). UE가 `Plugins` 아래를 재귀로 찾으므로 `unreal/DrFramework/DrFramework.uplugin`이 인식된다.
 2. 게임 모듈 `Build.cs`에 `DrFramework`를 추가한다. 정적 데이터는 DrTableSystem을 같은 방식으로 넣는 것을 권장한다.
-3. 필요한 기반 클래스를 상속하고 ini에 지정한다. CommonUI 뷰포트(`CommonGameViewportClient`)를 쓴다. 메뉴·HUD 클래스와 입력은 프로젝트 설정 "DrFramework UI"(`UDrUISettings`)에서 정한다.
+3. 필요한 기반 클래스를 상속하고 ini에 지정한다. 맵은 프로젝트 설정 "DrFramework 흐름"(`UDrFlowSettings`)에서 정한다. UI는 DrUIKit을 함께 넣고 `OnEnterTitle`·`OnEnterGame`에서 `UDrUIFlowSubsystem`을 시작한다(0.2.0에서 옮기는 법은 설계 명세서 '게임 흐름과 UI').
 4. 장르 코드(전투·GAS·보스·UI 스타일 등)는 자기 모듈에 자기 접두사로 만든다. 방법은 [DrSample](https://github.com/ldnjin81/DrSample)을 참고한다.
 
 ## 검증

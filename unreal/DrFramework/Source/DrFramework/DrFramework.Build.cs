@@ -8,7 +8,7 @@ public class DrFramework : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		// 모듈 자신의 폴더를 인클루드 루트로 취급해 헤더를 Source/DrFramework 기준
-		// 상대경로로 인클루드할 수 있게 한다(예: "UI/DrMenuWidget.h").
+		// 상대경로로 인클루드할 수 있게 한다(예: "Game/DrFlowSettings.h").
 		PublicIncludePaths.Add(ModuleDirectory);
 
 		PublicDependencyModuleNames.AddRange(new string[]
@@ -17,10 +17,6 @@ public class DrFramework : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"EnhancedInput",
-			"UMG",
-            "CommonUI",
-            "CommonInput",
             "Json",
 			"DeveloperSettings"
 		});
