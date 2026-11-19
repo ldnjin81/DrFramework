@@ -1,4 +1,4 @@
-# DrFramework 설계 명세서 — 언리얼 게임 런타임 프레임워크 (AI용, UE 5.8)
+# DrFramework 설계 명세서 — 언리얼 게임 런타임 프레임워크 (AI용, UE 5.9 · 5.8 호환)
 
 장르에 관계없이 게임의 수명·데이터·화면 흐름을 확장하는 코드 기반이다. 플러그인(저장소의 `unreal/DrFramework`, 게임에는 `Plugins/DrFramework` 아래에 둔다)은 소비 게임 모듈 없이 빌드할 수 있어야 한다. 게임 코드·스타일·에셋 경로·고정 메시지 목록·속성 세트는 포함하지 않는다.
 
@@ -81,7 +81,7 @@ UDrPerfSubsystem은 측정 틀이다. 실행 인자 -DrPerfCapture가 있으면 
 
 ## 빈 프로젝트에서 재현
 
-1. UE 5.8 프로젝트에 DrFramework를 넣고 활성화한다. UI가 필요하면 DrUIKit(CommonUI·EnhancedInput 사용)을 함께 넣는다. 정적 데이터가 필요하면 DrTableSystem도 함께 넣는다(권장). 전투·능력치가 필요하면 GAS는 게임이 직접 켠다(샘플 참고).
+1. UE 5.9(또는 5.8) 프로젝트에 DrFramework를 넣고 활성화한다. UI가 필요하면 DrUIKit(CommonUI·EnhancedInput 사용)을 함께 넣는다. 정적 데이터가 필요하면 DrTableSystem도 함께 넣는다(권장). 전투·능력치가 필요하면 GAS는 게임이 직접 켠다(샘플 참고).
 2. 소비 게임 모듈에 DrFramework를 의존성으로 추가한다. Target은 namespace 없이 BuildSettingsVersion.V7·EngineIncludeOrderVersion.Latest를 쓴다.
 3. GameInstance·GameMode·GameUserSettings를 필요에 따라 상속하고 ini에 게임 클래스를 설정한다. DrUIKit을 쓰면 CommonGameViewportClient를 지정한다.
 4. 맵 설정(DrFramework 흐름)과, DrUIKit을 쓰면 메뉴·HUD·입력 설정(DrUIKit '흐름'·'입력')을 필요한 값만 채운다. DrTableSystem을 쓰면 스키마 생성→게임 모듈 등록→빌드→굽기 순서다.

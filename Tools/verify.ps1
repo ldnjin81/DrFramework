@@ -1,6 +1,9 @@
-# DrFramework를 다른 플러그인·게임 모듈 없이 빌드하고 기반 자동화 테스트(DrFramework.*)를 실행한다.
-# 사용: .\Tools\verify.ps1 [-EngineRoot 'C:\Program Files\Epic Games\UE_5.8']
-param([string]$EngineRoot = 'C:\Program Files\Epic Games\UE_5.8')
+﻿# DrFramework를 다른 플러그인·게임 모듈 없이 빌드하고 기반 자동화 테스트(DrFramework.*)를 실행한다.
+# 사용: .\Tools\verify.ps1 [-EngineRoot <엔진 루트>]  # 기본: UE_5.9, 없으면 UE_5.8
+param([string]$EngineRoot = '')
+# 엔진: 지정하지 않으면 UE 5.9, 없으면 UE 5.8(둘 다 지원).
+if (-not $EngineRoot) { $EngineRoot = @('C:\Program Files\Epic Games\UE_5.9', 'C:\Program Files\Epic Games\UE_5.8') | Where-Object { Test-Path $_ } | Select-Object -First 1 }
+if (-not $EngineRoot) { throw 'UE 5.9·5.8 설치를 찾을 수 없습니다. -EngineRoot로 지정하세요.' }
 $ErrorActionPreference = 'Continue'
 $Root = Split-Path $PSScriptRoot -Parent
 $Project = Join-Path $Root 'Host\DrFrameworkHost.uproject'

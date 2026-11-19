@@ -10,8 +10,11 @@ param(
     [string[]]$Runs = @('-DrSmokeTest', '-DrPerfCapture'),
     [string]$ShaderFormat,
     [int]$TimeoutSeconds = 300,
-    [string]$EngineRoot = 'C:\Program Files\Epic Games\UE_5.8'
+    [string]$EngineRoot = ''
 )
+# 엔진: 지정하지 않으면 UE 5.9, 없으면 UE 5.8(둘 다 지원).
+if (-not $EngineRoot) { $EngineRoot = @('C:\Program Files\Epic Games\UE_5.9', 'C:\Program Files\Epic Games\UE_5.8') | Where-Object { Test-Path $_ } | Select-Object -First 1 }
+if (-not $EngineRoot) { throw 'UE 5.9·5.8 설치를 찾을 수 없습니다. -EngineRoot로 지정하세요.' }
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_package_common.ps1')
 $p = Resolve-PackagePaths $Project $Out
