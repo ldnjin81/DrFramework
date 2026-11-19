@@ -52,7 +52,7 @@
 .\Tools\verify.ps1      # 기본 엔진: C:\Program Files\Epic Games\UE_5.9, 없으면 UE_5.8
 ```
 
-UE 5.9.0 기준: 호스트 빌드 성공, `DrFramework.*` 8/8(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1, 성능 2). 샘플 위에서의 통합 검증(PIE 포함)은 DrSample 저장소에서 실행한다.
+UE 5.9.0 기준: 호스트 빌드 성공, `DrFramework.*` 8/8(네트워크 3, 가짜 서버 처리기 2, 스모크 결과 1, 성능 2). UE 5.8.4에서도 같은 결과이고, 두 엔진에서 `RunUAT BuildPlugin` 단독 빌드가 경고·오류 0이다(2026-11-19). 샘플 위에서의 통합 검증(PIE 포함)은 DrSample 저장소에서 실행한다.
 
 게임 패키지 검증(게임이 `RegisterSmokeSteps`와 `UDrPerfSubsystem` 파생을 제공할 때):
 
