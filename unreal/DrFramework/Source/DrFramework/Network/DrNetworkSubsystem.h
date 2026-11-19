@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Network/DrNetTypes.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "Templates/SubclassOf.h"
 #include "DrNetworkSubsystem.generated.h"
 
 class UDrServerEndpoint;

@@ -3,6 +3,7 @@
 #include "Containers/Ticker.h"
 #include "CoreMinimal.h"
 #include "Network/DrServerEndpoint.h"
+#include "Misc/AutomationTest.h"
 #include "DrFakeServer.generated.h"
 
 USTRUCT()

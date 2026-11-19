@@ -3,6 +3,8 @@
 #include "Content/DrContentBase.h"
 #include "Content/DrContentSettings.h"
 #include "Network/DrNetworkSubsystem.h"
+#include "Engine/GameInstance.h"
+#include "Subsystems/SubsystemCollection.h"
 void UDrContentSubsystem::Initialize(FSubsystemCollectionBase &Collection) {
   Collection.InitializeDependency(UDrNetworkSubsystem::StaticClass());
   Super::Initialize(Collection);
